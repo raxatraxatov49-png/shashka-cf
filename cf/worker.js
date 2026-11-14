@@ -6,10 +6,22 @@ const state = (globalThis.__CF = globalThis.__CF || {});
 export class Hub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
-    for (const [k, v] of Object.entries(env)) {
-      if (typeof v === 'string') process.env[k] = v;
+    const vars = {};
+    const names = new Set(Object.keys(env));
+    ['DEV','SKIP_WEBHOOK','REDIS_PREFIX','WEBHOOK_URL','MINI_APP_URL','BOT_TOKEN','WEBHOOK_SECRET',
+     'UPSTASH_REDIS_REST_URL','UPSTASH_REDIS_REST_TOKEN','ADMIN_ID','ADMIN_IDS','ADMINS'].forEach(n => names.add(n));
+    for (const k of names) {
+      const v = env[k];
+      if (typeof v === 'string') vars[k] = v;
     }
-    process.env.CF_WORKER = '1';
+    vars.CF_WORKER = '1';
+    try { Object.assign(process.env, vars); } catch {}
+    // process.env жазуды қабылдамаса, оны қарапайым объектпен алмастырамыз
+    if (Object.keys(vars).some(k => process.env[k] !== vars[k])) {
+      try {
+        Object.defineProperty(process, 'env', { value: { ...process.env, ...vars }, writable: true, configurable: true });
+      } catch (e) { console.error('process.env set failed:', e && e.message); }
+    }
     this.ready = new Promise((resolve, reject) => {
       state.listening = resolve;
       setTimeout(() => reject(new Error('startup timeout')), 25000);
@@ -72,7 +84,9 @@ export class Hub extends DurableObject {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/health') return new Response('ok');
+    if (url.pathname === '/health') {
+      return Response.json({ ok: true, DEV: env.DEV || null, SKIP_WEBHOOK: env.SKIP_WEBHOOK || null, keys: Object.keys(env) });
+    }
     const stub = env.HUB.get(env.HUB.idFromName('main'));
     return stub.fetch(request);
   }
