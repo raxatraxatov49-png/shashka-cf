@@ -1,0 +1,6755 @@
+'use strict';
+
+const http = require('./cf/http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { WebSocketServer } = require('./cf/ws');
+const G = require('./lib/game');
+const { verifyInitData } = require('./lib/telegram');
+const { createShop } = require('./lib/shop');
+const { t: tx, normLang, detectLang, DEFAULT_LANG } = require('./lib/i18n');
+
+const PORT = Number(process.env.PORT) || 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
+const DEV = process.env.DEV === '1';
+const GRACE = Number(process.env.GRACE_SECONDS) || 30;
+const PUBLIC = path.join('/app', 'public');
+
+const OWNER_ID = '8032280418';
+
+const DATA_DIR = process.env.DATA_DIR || '/app';
+
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch {}
+
+/*
+  ДЕРЕКТЕРДІ САҚТАУ
+  -----------------
+  Render-дің файлдық жүйесі уақытша: әр deploy/restart кезінде
+  groups.json, admins.json сияқты файлдар өшіп кетеді.
+  Сондықтан тұрақты сақтау қажет. Екі нұсқа бар:
+
+  1) Upstash Redis (тегін, диск қажет емес) — ұсынылады.
+     Render Environment-ке қосыңыз:
+       UPSTASH_REDIS_REST_URL
+       UPSTASH_REDIS_REST_TOKEN
+
+  2) Render Persistent Disk (ақылы) — Mount Path: /var/data,
+     Environment: DATA_DIR=/var/data
+
+  Екеуі де жоқ болса — файлға жазады, бірақ deploy кезінде өшеді.
+*/
+
+const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const USE_REDIS = Boolean(REDIS_URL && REDIS_TOKEN);
+const REDIS_PREFIX = process.env.REDIS_PREFIX || 'shashka:';
+
+const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
+const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
+const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
+const STATS_FILE = path.join(DATA_DIR, 'stats.json');
+
+const STORAGE_MODE = USE_REDIS
+  ? 'Upstash Redis'
+  : (process.env.DATA_DIR ? 'Persistent Disk (' + DATA_DIR + ')' : 'Файл (УАҚЫТША!)');
+
+/* ---------- JSON сақтау ---------- */
+
+function readJSON(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSON(file, data) {
+  const temp = file + '.tmp';
+
+  fs.writeFileSync(
+    temp,
+    JSON.stringify(data)
+  );
+
+  fs.renameSync(temp, file);
+}
+
+async function redisCommand(args) {
+  const response = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + REDIS_TOKEN,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(args)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.error) {
+    throw new Error(result.error || ('Redis HTTP ' + response.status));
+  }
+
+  return result.result;
+}
+
+/* Деректерді жүктеу: Redis -> файл (бұрынғы деректерді көшіру) -> fallback */
+async function storeLoad(name, file, fallback) {
+  if (USE_REDIS) {
+    const raw = await redisCommand(['GET', REDIS_PREFIX + name]);
+
+    if (raw !== null && raw !== undefined) {
+      return JSON.parse(raw);
+    }
+
+    // Redis-те жоқ: жергілікті файл болса, бір рет көшіреміз
+    const local = readJSON(file, undefined);
+
+    if (local !== undefined) {
+      await redisCommand(['SET', REDIS_PREFIX + name, JSON.stringify(local)]);
+      return local;
+    }
+
+    return fallback;
+  }
+
+  return readJSON(file, fallback);
+}
+
+const writeQueue = new Map();
+const lastSaved = new Map();
+const REDIS_COALESCE_MS = 2000;
+let flushPromise = null;
+let flushTimer = null;
+
+async function flushWrites() {
+  while (writeQueue.size) {
+    const [name, json] = writeQueue.entries().next().value;
+
+    try {
+      await redisCommand(['SET', REDIS_PREFIX + name, json]);
+
+      lastSaved.set(name, json);
+
+      if (writeQueue.get(name) === json) {
+        writeQueue.delete(name);
+      }
+    } catch (error) {
+      console.error('Redis жазу қатесі:', name, error.message);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+}
+
+function flushStorage() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+
+  if (!flushPromise) {
+    flushPromise = flushWrites().finally(() => {
+      flushPromise = null;
+
+      if (writeQueue.size) scheduleFlush();
+    });
+  }
+
+  return flushPromise;
+}
+
+// Қысқа уақыт ішіндегі көп жазуды бір Redis SET-ке біріктіреді
+function scheduleFlush() {
+  if (flushTimer || flushPromise) return;
+
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushStorage();
+  }, REDIS_COALESCE_MS);
+
+  if (flushTimer.unref) flushTimer.unref();
+}
+
+function storeSave(name, file, data) {
+  if (USE_REDIS) {
+    // Redis қолданылса, уақытша файлға қайта-қайта жазбаймыз (CPU/диск үнемдеу)
+    const json = JSON.stringify(data);
+
+    // Деректер өзгермесе, Redis-ке қайта жібермейміз
+    if (!writeQueue.has(name) && lastSaved.get(name) === json) return;
+
+    writeQueue.set(name, json);
+    scheduleFlush();
+    return;
+  }
+
+  try {
+    writeJSON(file, data);
+  } catch (error) {
+    console.error('Файлға жазу қатесі:', file, error.message);
+  }
+}
+
+/* ---------- Рұқсаттар ---------- */
+
+const PERMISSIONS = {
+  stats: '📊 Статистика',
+  groups: '👥 Қосылған топтар',
+  games: '🎮 Белсенді ойындар',
+  broadcast: '📢 Топтарға хабарлама',
+  group_manage: '🚫 Топтарды басқару',
+  admin_manage: '👑 Админдерді басқару',
+  coins: '🪙 Койн беру',
+  vip: '👑 VIP беру'
+};
+
+const DEFAULT_PERMISSIONS = [
+  'stats',
+  'groups',
+  'games'
+];
+
+function parseAdmins(data) {
+  const result = new Map();
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (!item || !item.id) continue;
+
+      result.set(String(item.id), {
+        id: String(item.id),
+        permissions: Array.isArray(item.permissions)
+          ? item.permissions.filter(p => PERMISSIONS[p])
+          : [...DEFAULT_PERMISSIONS]
+      });
+    }
+  }
+
+  return result;
+}
+
+const admins = new Map();
+
+function saveAdmins() {
+  storeSave('admins', ADMINS_FILE, [...admins.values()]);
+}
+
+function isOwner(id) {
+  return String(id) === OWNER_ID;
+}
+
+function isAdmin(id) {
+  return isOwner(id) || admins.has(String(id));
+}
+
+function hasPermission(id, permission) {
+  if (isOwner(id)) return true;
+
+  const admin = admins.get(String(id));
+
+  return Boolean(
+    admin &&
+    admin.permissions.includes(permission)
+  );
+}
+
+function getAdminPermissions(id) {
+  if (isOwner(id)) {
+    return Object.keys(PERMISSIONS);
+  }
+
+  return admins.get(String(id))?.permissions || [];
+}
+
+/* ---------- Топтарды жүктеу ---------- */
+
+const savedGroups = new Map();
+
+function saveGroups() {
+  storeSave('groups', GROUPS_FILE, [...savedGroups.values()]);
+}
+
+/* ---------- Блокталған топтар ---------- */
+
+const blockedGroups = new Set();
+
+function saveBlockedGroups() {
+  storeSave('blocked', BLOCKED_FILE, [...blockedGroups]);
+}
+
+/* ---------- Тұрақты статистика ---------- */
+
+const stats = {
+  totalGames: 0,
+  totalGroupGames: 0,
+  users: {}
+};
+
+/* ---------- Дүкен: койн, тақта/тас, дос шақыру ---------- */
+
+const SHOP_FILE = path.join(DATA_DIR, 'shop.json');
+
+const saveShop = data => storeSave('shop', SHOP_FILE, data);
+
+let shop = createShop({}, saveShop);
+
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+// Ойыншы алғаш қашан кіргенін stats.users-тен аламыз
+const firstSeen = {
+  get: id => (hasOwn(stats.users, id) ? stats.users[id] : undefined),
+  has: id => hasOwn(stats.users, id)
+};
+
+const shopMsg = (id, ev) => {
+  const m = Object.assign({ t: 'shop' }, shop.view(id));
+  m.packs = COIN_PACKS;
+  m.vipStars = VIP_STARS;
+  m.vipDays = VIP_DAYS;
+  if (ev) m.ev = ev;
+  return m;
+};
+
+let statsTimer = null;
+
+function saveStatsNow() {
+  clearTimeout(statsTimer);
+  statsTimer = null;
+
+  storeSave('stats', STATS_FILE, stats);
+}
+
+// Әр ойын басталғанда бүкіл stats-ты қайта жазбау үшін 4 секундқа біріктіреміз
+function saveStats() {
+  if (statsTimer) return;
+
+  statsTimer = setTimeout(saveStatsNow, 4000);
+
+  if (statsTimer.unref) statsTimer.unref();
+}
+
+function trackUser(id) {
+  id = String(id);
+
+  if (stats.users[id]) return;
+
+  stats.users[id] = Date.now();
+  saveStats();
+
+  if (!id.startsWith('dev') && typeof profiles !== 'undefined' && !profiles.has(id)) {
+    profiles.set(id, { name: '', username: '', avatar: null, seen: Date.now() });
+    saveProfilesSoon();
+  }
+}
+
+/* ---------- Тіл баптаулары (чат / топ бойынша) ---------- */
+
+const LANGS_FILE = path.join(DATA_DIR, 'langs.json');
+const chatLangs = new Map();
+
+function getLang(chatId) {
+  return normLang(chatLangs.get(String(chatId)));
+}
+
+function hasLang(chatId) {
+  return chatLangs.has(String(chatId));
+}
+
+function setLang(chatId, lang) {
+  chatLangs.set(String(chatId), normLang(lang));
+  storeSave('langs', LANGS_FILE, Object.fromEntries(chatLangs));
+}
+
+function tgLangFromInitData(initData) {
+  try {
+    const user = JSON.parse(new URLSearchParams(initData).get('user'));
+    return (user && user.language_code) || '';
+  } catch {
+    return '';
+  }
+}
+
+// Мини апп тілі: жеке чатта таңдалған тіл, болмаса Telegram тілі, болмаса қазақша
+function userLang(u) {
+  const id = String(u.id);
+
+  if (chatLangs.has(id)) return chatLangs.get(id);
+
+  return normLang(detectLang(u.tgLang));
+}
+
+/* ---------- Пайдаланушыларға хабар тарату ---------- */
+
+const UNREACHABLE_FILE = path.join(DATA_DIR, 'unreachable.json');
+const unreachableUsers = new Set();
+let userBroadcastRunning = false;
+
+function saveUnreachable() {
+  storeSave('unreachable', UNREACHABLE_FILE, [...unreachableUsers]);
+}
+
+// Ботты ашқан / мини аппқа кірген, бірақ ботты бұғаттамаған адамдар
+function reachableUserIds() {
+  return Object.keys(stats.users).filter(
+    id => !unreachableUsers.has(id)
+  );
+}
+
+async function runUserBroadcast(adminChatId, fromChatId, messageId) {
+  const ids = reachableUserIds();
+
+  let success = 0;
+  let failed = 0;
+  let unreachable = 0;
+
+  for (const id of ids) {
+    let attempts = 0;
+
+    while (attempts < 3) {
+      attempts++;
+
+      try {
+        await telegramApi('copyMessage', {
+          chat_id: id,
+          from_chat_id: fromChatId,
+          message_id: messageId
+        });
+
+        success++;
+        break;
+      } catch (error) {
+        const retryAfter = Number(
+          error.telegram?.parameters?.retry_after || 0
+        );
+
+        if (retryAfter > 0 && attempts < 3) {
+          await delay((retryAfter + 1) * 1000);
+          continue;
+        }
+
+        const description = String(error.message || '');
+
+        if (
+          /blocked|deactivated|chat not found|can't initiate|user not found|forbidden/i
+            .test(description)
+        ) {
+          unreachableUsers.add(id);
+          unreachable++;
+        } else {
+          failed++;
+        }
+
+        console.error(
+          'Пайдаланушыға хабар жіберілмеді:',
+          id,
+          description
+        );
+
+        break;
+      }
+    }
+
+    await delay(50);
+  }
+
+  if (unreachable) saveUnreachable();
+
+  try {
+    await telegramApi('sendMessage', {
+      chat_id: adminChatId,
+      text:
+        '📨 <b>ХАБАР ТАРАТУ АЯҚТАЛДЫ</b>\n\n' +
+        `👤 Барлық алушы: ${ids.length}\n` +
+        `✅ Жеткізілді: ${success}\n` +
+        `🚫 Ботты бұғаттаған / қолжетімсіз: ${unreachable}\n` +
+        `❌ Басқа қате: ${failed}`,
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error('Админге есеп жіберілмеді:', error.message);
+  }
+
+  userBroadcastRunning = false;
+}
+
+/* ---------- Рейтинг (топтағы ойын очколары) ---------- */
+
+const RATINGS_FILE = path.join(DATA_DIR, 'ratings.json');
+const WIN_POINTS = 10;
+
+// chatId -> Map(userId -> { name, points, games, wins })
+const ratings = new Map();
+
+const RANKS = [
+  { key: 'bronze', min: 0, icon: '🥉' },
+  { key: 'silver', min: 50, icon: '🥈' },
+  { key: 'gold', min: 150, icon: '🥇' },
+  { key: 'platinum', min: 300, icon: '💠' },
+  { key: 'diamond', min: 600, icon: '💎' },
+  { key: 'master', min: 1000, icon: '👑' }
+];
+
+function saveRatings() {
+  const data = {};
+
+  for (const [chatId, members] of ratings) {
+    data[chatId] = Object.fromEntries(members);
+  }
+
+  storeSave('ratings', RATINGS_FILE, data);
+}
+
+function rankIndex(points) {
+  let index = 0;
+
+  RANKS.forEach((rank, i) => {
+    if (points >= rank.min) index = i;
+  });
+
+  return index;
+}
+
+function rankLabel(lang, index) {
+  const rank = RANKS[index];
+
+  return rank.icon + ' ' + tx(lang, 'rank_' + rank.key);
+}
+
+// Ойыншының барлық топтардағы жалпы көрсеткіші
+function userTotals(userId) {
+  const id = String(userId);
+  const total = { points: 0, games: 0, wins: 0 };
+
+  for (const members of ratings.values()) {
+    const entry = members.get(id);
+
+    if (!entry) continue;
+
+    total.points += entry.points || 0;
+    total.games += entry.games || 0;
+    total.wins += entry.wins || 0;
+  }
+
+  return total;
+}
+
+// Топтың тізімі: очко, жеңіс, ойын саны бойынша
+function groupBoard(chatId) {
+  const members = ratings.get(String(chatId));
+
+  if (!members) return [];
+
+  return [...members.entries()].sort((a, b) =>
+    (b[1].points - a[1].points) ||
+    (b[1].wins - a[1].wins) ||
+    (a[1].games - b[1].games)
+  );
+}
+
+function ratingName(userId, fallback) {
+  const u = users.get(String(userId));
+
+  return (
+    (u && (u.name || u.username)) ||
+    fallback ||
+    'Ойыншы'
+  );
+}
+
+// Ойын біткенде екі ойыншыға да жазады. Қайтарады: id -> { before, after }
+function recordGroupGame(chatId, ids, winnerId) {
+  const key = String(chatId);
+
+  if (!ratings.has(key)) ratings.set(key, new Map());
+
+  const members = ratings.get(key);
+  const result = {};
+
+  for (const rawId of ids) {
+    const id = String(rawId);
+    const before = userTotals(id).points;
+
+    const entry = members.get(id) || {
+      name: '',
+      points: 0,
+      games: 0,
+      wins: 0
+    };
+
+    entry.name = ratingName(id, entry.name);
+    entry.games++;
+
+    if (winnerId && id === String(winnerId)) {
+      entry.wins++;
+      entry.points += WIN_POINTS;
+    }
+
+    members.set(id, entry);
+
+    result[id] = {
+      before,
+      after: userTotals(id).points
+    };
+  }
+
+  saveRatings();
+
+  return result;
+}
+
+function ratingMessage(chatId) {
+  const lang = getLang(chatId);
+  const board = groupBoard(chatId).slice(0, 10);
+
+  if (!board.length) {
+    return tx(lang, 'ratingEmpty');
+  }
+
+  const medals = ['🥇', '🥈', '🥉'];
+
+  const lines = board.map(([id, entry], index) => {
+    const place = medals[index] || `${index + 1}.`;
+    const rank = RANKS[rankIndex(userTotals(id).points)].icon;
+
+    return (
+      `${place} <a href="tg://user?id=${encodeURIComponent(String(id))}">${escapeHtml(entry.name || 'Ойыншы')}</a> — ` +
+      `<b>${entry.points}</b> ⭐ ${rank}`
+    );
+  });
+
+  return (
+    tx(lang, 'ratingTitle') + '\n\n' +
+    lines.join('\n') + '\n\n' +
+    tx(lang, 'ratingFooter')
+  );
+}
+
+function meMessage(chatId, from, inGroup) {
+  const lang = getLang(chatId);
+  const totals = userTotals(from.id);
+  const index = rankIndex(totals.points);
+
+  const name =
+    [from.first_name, from.last_name].filter(Boolean).join(' ') ||
+    from.username ||
+    'Ойыншы';
+
+  const lines = [
+    `👤 <b>${escapeHtml(name)}</b>`,
+    '',
+    `${tx(lang, 'meRank')}: ${rankLabel(lang, index)}`,
+    `${tx(lang, 'mePoints')}: <b>${totals.points}</b>`,
+    `${tx(lang, 'meGames')}: ${totals.games}`,
+    `${tx(lang, 'meWins')}: ${totals.wins}`
+  ];
+
+  if (index < RANKS.length - 1) {
+    lines.push(
+      '',
+      tx(lang, 'meNext', {
+        rank: rankLabel(lang, index + 1),
+        left: RANKS[index + 1].min - totals.points
+      })
+    );
+  } else {
+    lines.push('', tx(lang, 'meMax'));
+  }
+
+  if (inGroup) {
+    const place = groupBoard(chatId).findIndex(
+      ([id]) => id === String(from.id)
+    );
+
+    if (place >= 0) {
+      lines.push(tx(lang, 'mePlace', { place: place + 1 }));
+    }
+  }
+
+  lines.push('', tx(lang, 'meNote'));
+
+  return lines.join('\n');
+}
+
+/* ---------- Жалпы рейтинг (мини апп): кездейсоқ қарсылас ойындары ---------- */
+
+const GLOBAL_RATING_FILE = path.join(DATA_DIR, 'global-rating.json');
+const GR_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // апта = іске қосқаннан бастап 7 күн
+const GR_TOP = 30;
+
+// Апталық сыйлық (койн): 1-орын 1000, 2-орын 500, 3-орын 250, 4–10-орын 100
+const GR_PRIZE_TOP = 10;
+const GR_PRIZES = [1000, 500, 250];
+const GR_PRIZE_REST = 100;
+
+function grPrizeFor(rank) {
+  if (rank >= 1 && rank <= GR_PRIZES.length) return GR_PRIZES[rank - 1];
+  if (rank > GR_PRIZES.length && rank <= GR_PRIZE_TOP) return GR_PRIZE_REST;
+  return 0;
+}
+
+const GR_PRIZE_MSG = {
+  kk: (rank, c) => `🏆 Апталық рейтингте ${rank}-орын алдыңыз!\nСізге +${c} 🪙 койн берілді.`,
+  uz: (rank, c) => `🏆 Haftalik reytingda ${rank}-o‘rin!\nSizga +${c} 🪙 koin berildi.`,
+  ru: (rank, c) => `🏆 Вы заняли ${rank}-е место в рейтинге недели!\nВам начислено +${c} 🪙 коинов.`,
+  kaa: (rank, c) => `🏆 Ҳәптелик рейтингте ${rank}-орынды ийелеудиңиз!\nСизге +${c} 🪙 койн берилди.`
+};
+
+// Осы себептермен аяқталған ойынға ұпай берілмейді:
+// берілу, байланыс үзілу, қарсылас кірмеді, жүріс уақыты бітті.
+// Тек ойын ережесі бойынша толық аяқталса ғана ұпай беріледі.
+const GR_NO_POINTS = new Set([
+  'resign',
+  'left',
+  'opponent_timeout',
+  'timeout'
+]);
+
+// users[id] = { name, username, avatar, points, wins, games, wk, wp }
+// wk — апталық ұпай қай кезеңге жататыны, wp — сол кезеңдегі ұпай
+const globalRating = { periodStart: 0, users: {}, rewarded: 0, seasonStart: 0, rankReset: 0 };
+
+// Ранг тек осы нөмірден төмен болса, бір рет нөлден (Қоладан) қайта басталады.
+// Рейтинг ұпайлары (points, wins, апталық wp) өзгермейді. Қайта нөлдеу керек болса, санды көбейтіңіз.
+const RANK_RESET_ID = 1;
+
+let grSaveTimer = null;
+
+function grSaveNow() {
+  clearTimeout(grSaveTimer);
+  grSaveTimer = null;
+
+  storeSave('global_rating', GLOBAL_RATING_FILE, {
+    periodStart: globalRating.periodStart,
+    users: globalRating.users,
+    rewarded: globalRating.rewarded || 0,
+    seasonStart: globalRating.seasonStart || 0,
+    rankReset: globalRating.rankReset || 0
+  });
+}
+
+function grSaveSoon() {
+  if (grSaveTimer) return;
+
+  grSaveTimer = setTimeout(grSaveNow, 3000);
+
+  if (grSaveTimer.unref) grSaveTimer.unref();
+}
+
+// Апта біткен болса, жаңа 7 күндік кезең басталады (ұпай нөлден)
+function grRoll() {
+  const now = Date.now();
+
+  if (!globalRating.periodStart) {
+    globalRating.periodStart = now;
+    grSaveNow();
+    return;
+  }
+
+  const passed = Math.floor((now - globalRating.periodStart) / GR_WEEK_MS);
+
+  if (passed > 0) {
+    const ended = globalRating.periodStart;
+
+    globalRating.periodStart += passed * GR_WEEK_MS;
+
+    // Біткен аптаның жеңімпаздарына койн береміз (бір рет қана)
+    grPayWeek(ended);
+
+    grSaveNow();
+  }
+}
+
+// Біткен аптаның топ-10 ойыншысына койн береді
+function grPayWeek(ended) {
+  if (globalRating.rewarded === ended) return;
+
+  // Алдымен "берілді" деп сақтаймыз: қайта іске қосылса, екі рет бермеу үшін
+  globalRating.rewarded = ended;
+  grSaveNow();
+
+  const winners = Object.entries(globalRating.users)
+    .map(([id, e]) => ({
+      id,
+      e,
+      p: e.wk === ended ? (e.wp || 0) : 0
+    }))
+    .filter(x => x.p > 0)
+    .sort((a, b) =>
+      (b.p - a.p) ||
+      ((b.e.wins || 0) - (a.e.wins || 0)) ||
+      ((a.e.games || 0) - (b.e.games || 0))
+    )
+    .slice(0, GR_PRIZE_TOP);
+
+  const notices = [];
+
+  winners.forEach((x, i) => {
+    const rank = i + 1;
+    const prize = grPrizeFor(rank);
+
+    if (!prize) return;
+
+    try {
+      const r = shop.addCoins(x.id, prize);
+
+      if (!r || !r.ok) return;
+
+      const u = users.get(x.id);
+
+      if (u && u.ws) send(u, shopMsg(x.id));
+
+      notices.push({ id: x.id, rank, prize });
+    } catch (error) {
+      console.error('Апталық койн беру қатесі:', x.id, error.message);
+    }
+  });
+
+  console.log('Апталық рейтинг сыйлықтары берілді:', notices.length);
+
+  // Telegram-ға хабар (қате болса да ойынға әсер етпейді)
+  (async () => {
+    for (const n of notices) {
+      if (String(n.id).startsWith('dev')) continue;
+
+      let lang = 'kk';
+
+      try {
+        lang = getLang(n.id);
+      } catch (e) {}
+
+      const make = GR_PRIZE_MSG[lang] || GR_PRIZE_MSG.kk;
+
+      try {
+        await telegramApi('sendMessage', {
+          chat_id: n.id,
+          text: make(n.rank, n.prize)
+        });
+      } catch (error) {
+        console.error('Сыйлық хабары жіберілмеді:', n.id, error.message);
+      }
+    }
+  })();
+}
+
+function grWeekPoints(entry) {
+  return entry.wk === globalRating.periodStart ? (entry.wp || 0) : 0;
+}
+
+// Кездейсоқ қарсыласпен ойын біткенде шақырылады
+function grRecordGame(g, winnerSide, reason) {
+  if (!g.random || g.groupInfo) return;
+
+  // Толық ойналмаған ойын есептелмейді
+  if (GR_NO_POINTS.has(reason)) return;
+
+  grRoll();
+  rkRoll();
+
+  const winnerId = winnerSide === 'w'
+    ? String(g.p.w)
+    : winnerSide === 'b'
+      ? String(g.p.b)
+      : null;
+
+  for (const rawId of [g.p.w, g.p.b]) {
+    const id = String(rawId);
+    const u = users.get(id);
+
+    const entry = globalRating.users[id] || {
+      name: '',
+      username: '',
+      avatar: null,
+      points: 0,
+      wins: 0,
+      games: 0,
+      wk: 0,
+      wp: 0
+    };
+
+    if (u) {
+      entry.name = String(u.name || u.username || entry.name || '').slice(0, 40);
+      entry.username = u.username || entry.username || '';
+      entry.avatar = u.avatar || entry.avatar || null;
+    }
+
+    if (entry.wk !== globalRating.periodStart) {
+      entry.wk = globalRating.periodStart;
+      entry.wp = 0;
+    }
+
+    entry.games++;
+
+    // Ранг маусымы (30 күн): маусым ауысса, жеңіс нөлден басталады
+    if (entry.sk !== globalRating.seasonStart) {
+      entry.sk = globalRating.seasonStart;
+      entry.sw = 0;
+    }
+
+    if (winnerId && id === winnerId) {
+      entry.sw = (entry.sw || 0) + 1;
+      entry.wins++;
+      entry.points += WIN_POINTS;
+      entry.wp += WIN_POINTS;
+    }
+
+    globalRating.users[id] = entry;
+  }
+
+  grSaveSoon();
+}
+
+function grBoard(kind) {
+  grRoll();
+
+  const week = kind === 'week';
+
+  return Object.entries(globalRating.users)
+    .map(([id, e]) => ({
+      id,
+      e,
+      p: week ? grWeekPoints(e) : (e.points || 0)
+    }))
+    .filter(x => x.p > 0)
+    .sort((a, b) =>
+      (b.p - a.p) ||
+      ((b.e.wins || 0) - (a.e.wins || 0)) ||
+      ((a.e.games || 0) - (b.e.games || 0))
+    );
+}
+
+/* ---------- РАНГ: кездейсоқ ойындағы жеңіс санына қарай ---------- */
+// Ойын ережесі бойынша толық аяқталған жеңістер ғана (GR_NO_POINTS есептелмейді)
+const RK_WINS = [0, 5, 15, 30, 60, 100, 160, 250, 400];
+
+function rkTier(wins) {
+  let t = 0;
+
+  RK_WINS.forEach((w, i) => {
+    if (wins >= w) t = i;
+  });
+
+  return t;
+}
+
+// Ранг 30 күн сайын жаңарады: маусым біткенде барлығы қоладан қайта басталады
+const RK_SEASON_MS = 30 * 24 * 60 * 60 * 1000;
+
+function rkRoll() {
+  const now = Date.now();
+
+  if (!globalRating.seasonStart) {
+    globalRating.seasonStart = now;
+    grSaveNow();
+    return;
+  }
+
+  const passed = Math.floor((now - globalRating.seasonStart) / RK_SEASON_MS);
+
+  if (passed > 0) {
+    globalRating.seasonStart += passed * RK_SEASON_MS;
+    grSaveNow();
+  }
+}
+
+function rkSeasonWins(userId) {
+  rkRoll();
+
+  const e = globalRating.users[String(userId)];
+
+  return e && e.sk === globalRating.seasonStart ? (e.sw || 0) : 0;
+}
+
+function rkPayload(userId) {
+  rkRoll();
+
+  const all = Object.entries(globalRating.users)
+    .map(([id, e]) => ({ id, e, w: e.sk === globalRating.seasonStart ? (e.sw || 0) : 0 }))
+    .filter(x => x.w > 0)
+    .sort((a, b) =>
+      (b.w - a.w) ||
+      ((a.e.games || 0) - (b.e.games || 0))
+    );
+
+  const idx = all.findIndex(x => x.id === String(userId));
+  const wins = rkSeasonWins(userId);
+
+  return {
+    t: 'rank',
+    seasonLeft: Math.max(0, globalRating.seasonStart + RK_SEASON_MS - Date.now()),
+    wins,
+    tier: rkTier(wins),
+    pos: idx >= 0 ? idx + 1 : null,
+    steps: RK_WINS,
+    list: all.slice(0, 100).map((x, i) => ({
+      pos: i + 1,
+      name: x.e.name || 'Ойыншы',
+      username: x.e.username || '',
+      avatar: x.e.avatar || null,
+      wins: x.w,
+      tier: rkTier(x.w)
+    }))
+  };
+}
+
+function grPayload(userId) {
+  grRoll();
+
+  const out = {
+    t: 'rating',
+    left: Math.max(
+      0,
+      globalRating.periodStart + GR_WEEK_MS - Date.now()
+    ),
+    prizes: {
+      p1: GR_PRIZES[0],
+      p2: GR_PRIZES[1],
+      p3: GR_PRIZES[2],
+      rest: GR_PRIZE_REST,
+      top: GR_PRIZE_TOP
+    }
+  };
+
+  for (const kind of ['week', 'all']) {
+    const board = grBoard(kind);
+    const index = board.findIndex(x => x.id === String(userId));
+
+    out[kind] = {
+      list: board.slice(0, GR_TOP).map((x, i) => ({
+        rank: i + 1,
+        name: x.e.name || 'Ойыншы',
+        username: x.e.username || '',
+        avatar: x.e.avatar || null,
+        points: x.p,
+        icon: RANKS[rankIndex(x.e.points || 0)].icon
+      })),
+      me: {
+        rank: index >= 0 ? index + 1 : null,
+        points: index >= 0 ? board[index].p : 0
+      }
+    };
+  }
+
+  return out;
+}
+
+async function initStorage() {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const adminData = await storeLoad('admins', ADMINS_FILE, []);
+      const groupData = await storeLoad('groups', GROUPS_FILE, []);
+      const blockedData = await storeLoad('blocked', BLOCKED_FILE, []);
+      const statsData = await storeLoad('stats', STATS_FILE, null);
+      const langData = await storeLoad('langs', LANGS_FILE, {});
+      const ratingData = await storeLoad('ratings', RATINGS_FILE, {});
+      const grData = await storeLoad('global_rating', GLOBAL_RATING_FILE, null);
+      const shopData = await storeLoad('shop', SHOP_FILE, {});
+      const unreachableData = await storeLoad('unreachable', UNREACHABLE_FILE, []);
+      const profileData = await storeLoad('profiles', PROFILES_FILE, {});
+      const payRaw = await storeLoad('payments', PAY_FILE, null);
+
+      shop = createShop(shopData, saveShop);
+
+      admins.clear();
+      for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
+
+      savedGroups.clear();
+      if (Array.isArray(groupData)) {
+        for (const g of groupData) {
+          if (g && g.id) savedGroups.set(String(g.id), g);
+        }
+      }
+
+      blockedGroups.clear();
+      if (Array.isArray(blockedData)) {
+        for (const id of blockedData) blockedGroups.add(String(id));
+      }
+
+      unreachableUsers.clear();
+      if (Array.isArray(unreachableData)) {
+        for (const id of unreachableData) unreachableUsers.add(String(id));
+      }
+
+      ratings.clear();
+      if (ratingData && typeof ratingData === 'object') {
+        for (const [chatId, members] of Object.entries(ratingData)) {
+          ratings.set(
+            String(chatId),
+            new Map(Object.entries(members || {}))
+          );
+        }
+      }
+
+      globalRating.periodStart = 0;
+      globalRating.users = {};
+      globalRating.rewarded = 0;
+
+      if (grData && typeof grData === 'object') {
+        globalRating.periodStart = Number(grData.periodStart) || 0;
+        globalRating.rewarded = Number(grData.rewarded) || 0;
+        globalRating.seasonStart = Number(grData.seasonStart) || 0;
+        globalRating.rankReset = Number(grData.rankReset) || 0;
+
+        globalRating.users =
+          grData.users && typeof grData.users === 'object'
+            ? grData.users
+            : {};
+      }
+
+      // Алғаш рет іске қосылғанда 7 күндік санақ қазірден басталады
+      grRoll();
+
+      // Рангты бір рет нөлдеу: жаңа маусым қазірден басталады, барлығы Қоладан бастайды.
+      // Рейтинг ұпайларына тимейді.
+      if ((globalRating.rankReset || 0) < RANK_RESET_ID) {
+        globalRating.seasonStart = Date.now();
+        globalRating.rankReset = RANK_RESET_ID;
+        grSaveNow();
+        console.log('Ранг нөлденді: жаңа маусым басталды');
+      }
+
+      payData.charges = [];
+      if (payRaw && Array.isArray(payRaw.charges)) {
+        payData.charges = payRaw.charges.slice(-500);
+      }
+
+      // Ойыншылар бөлімі: сақталған профильдер + рейтингтегі бұрынғы ойыншылар
+      profiles.clear();
+      if (profileData && typeof profileData === 'object') {
+        for (const [id, p] of Object.entries(profileData)) {
+          if (!p || typeof p !== 'object') continue;
+          profiles.set(String(id), {
+            name: String(p.name || '').slice(0, 40),
+            username: String(p.username || ''),
+            avatar: p.avatar || null,
+            seen: Number(p.seen) || 0
+          });
+        }
+      }
+      for (const [id, e] of Object.entries(globalRating.users)) {
+        if (profiles.has(id) || !e || !(e.name || e.username)) continue;
+        profiles.set(id, {
+          name: String(e.name || ''),
+          username: String(e.username || ''),
+          avatar: e.avatar || null,
+          seen: 0
+        });
+      }
+
+      // Админ панельдегі барлық пайдаланушыларды (stats.users) қосамыз
+      for (const id of Object.keys(stats.users || {})) {
+        if (id.startsWith('dev') || profiles.has(id)) continue;
+        profiles.set(id, {
+          name: '',
+          username: '',
+          avatar: null,
+          seen: Number(stats.users[id]) || 0
+        });
+      }
+
+      chatLangs.clear();
+      if (langData && typeof langData === 'object') {
+        for (const [id, l] of Object.entries(langData)) {
+          chatLangs.set(String(id), normLang(l));
+        }
+      }
+
+      const groupGamesSum = [...savedGroups.values()].reduce(
+        (sum, g) => sum + (Number(g.gameCount) || 0),
+        0
+      );
+
+      if (statsData && typeof statsData === 'object') {
+        stats.totalGames = Number(statsData.totalGames) || 0;
+        stats.totalGroupGames = Number(statsData.totalGroupGames) || 0;
+        stats.users = statsData.users && typeof statsData.users === 'object'
+          ? statsData.users
+          : {};
+      }
+
+      // Ескі деректерден көшіру: өткен топ ойындарын жоғалтпау
+      if (stats.totalGroupGames < groupGamesSum) {
+        stats.totalGroupGames = groupGamesSum;
+      }
+
+      if (stats.totalGames < stats.totalGroupGames) {
+        stats.totalGames = stats.totalGroupGames;
+      }
+
+      console.log('Сақтау режимі:', STORAGE_MODE);
+      console.log(
+        `Жүктелді: топ ${savedGroups.size}, админ ${admins.size}, ` +
+        `блок ${blockedGroups.size}, ойыншы ${Object.keys(stats.users).length}`
+      );
+
+      if (!USE_REDIS && !process.env.DATA_DIR && process.env.RENDER) {
+        console.warn(
+          '⚠️ ЕСКЕРТУ: Render-де тұрақты сақтау бапталмаған! ' +
+          'Әр deploy кезінде статистика өшеді. ' +
+          'UPSTASH_REDIS_REST_URL/TOKEN немесе DATA_DIR+Disk орнатыңыз.'
+        );
+      }
+
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(`Деректерді жүктеу қатесі (${attempt}/5):`, error.message);
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+  }
+
+  // Бос деректермен іске қосып, барын үстіне жазып жібермеу үшін тоқтатамыз
+  console.error('Деректерді жүктеу мүмкін болмады. Сервер тоқтатылды:', lastError && lastError.message);
+  process.exit(1);
+}
+
+function isGroupBlocked(id) {
+  return blockedGroups.has(String(id));
+}
+
+/* ---------- Баптаулар ---------- */
+
+const INVITE_TTL = 10 * 60 * 1000;
+const GROUP_TTL = 10 * 60 * 1000;
+
+const GROUP_SEARCH_SECONDS = 120;
+const GROUP_SEARCH_MS = GROUP_SEARCH_SECONDS * 1000;
+
+const TURN_SECONDS = 60;
+const TURN_MS = TURN_SECONDS * 1000;
+
+const GROUP_WAIT_SECONDS = 90;
+const GROUP_WAIT_MS = GROUP_WAIT_SECONDS * 1000;
+
+const WEBHOOK_URL =
+  process.env.WEBHOOK_URL ||
+  'https://shashka-mini-app-tp6r.onrender.com/telegram-webhook';
+
+const MINI_APP_LINK =
+  'https://t.me/shashkaoyinibot?startapp=';
+
+const WEBHOOK_SECRET = crypto
+  .createHash('sha256')
+  .update(BOT_TOKEN)
+  .digest('hex')
+  .slice(0, 32);
+
+if (!BOT_TOKEN && !DEV) {
+  console.error('BOT_TOKEN орнатылмаған.');
+  process.exit(1);
+}
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon'
+};
+
+/* ---------- Telegram API ---------- */
+
+async function telegramApi(method, data) {
+  const response = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    }
+  );
+
+  const result = await response.json();
+
+  if (!result.ok) {
+    const error = new Error(
+      result.description || 'Telegram API қатесі'
+    );
+
+    error.telegram = result;
+    throw error;
+  }
+
+  return result;
+}
+
+/* ---------- Көмекші функциялар ---------- */
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function playerName(player) {
+  if (!player) return 'Ойыншы';
+
+  if (player.username) {
+    return '@' + player.username;
+  }
+
+  return [
+    player.first_name,
+    player.last_name
+  ].filter(Boolean).join(' ') || player.name || 'Ойыншы';
+}
+
+function playerLink(player) {
+  if (!player || !player.id) return 'Ойыншы';
+
+  return `<a href="tg://user?id=${encodeURIComponent(String(player.id))}">${escapeHtml(playerName(player))}</a>`;
+}
+
+/* ---------- Топтарды сақтау ---------- */
+
+async function registerGroup(chat) {
+  if (
+    !chat ||
+    !['group', 'supergroup'].includes(chat.type)
+  ) {
+    return;
+  }
+
+  const id = String(chat.id);
+  const old = savedGroups.get(id);
+
+  const group = {
+    id,
+    title: chat.title || old?.title || 'Атаусыз топ',
+    username: chat.username || null,
+    type: chat.username ? 'public' : 'private',
+    inviteLink: old?.inviteLink || null,
+    addedAt: old?.addedAt || Date.now(),
+    gameCount: Number(old?.gameCount) || 0,
+    lastGameAt: old?.lastGameAt || null
+  };
+
+  if (group.username) {
+    group.inviteLink = 'https://t.me/' + group.username;
+  } else if (!group.inviteLink) {
+    try {
+      const result = await telegramApi(
+        'createChatInviteLink',
+        {
+          chat_id: id,
+          name: 'Shashka Bot'
+        }
+      );
+
+      group.inviteLink = result.result.invite_link;
+    } catch (error) {
+      console.log(
+        'Жабық топ сілтемесі алынбады:',
+        error.message
+      );
+    }
+  }
+
+  savedGroups.set(id, group);
+  saveGroups();
+
+  console.log('Топ тіркелді:', group.title, id);
+}
+
+function removeGroup(id) {
+  if (savedGroups.delete(String(id))) {
+    saveGroups();
+    console.log('Топ тізімнен өшірілді:', id);
+  }
+}
+
+function incrementGroupGameCount(chatId) {
+  const group = savedGroups.get(String(chatId));
+
+  if (!group) return;
+
+  group.gameCount =
+    (Number(group.gameCount) || 0) + 1;
+
+  group.lastGameAt = Date.now();
+
+  savedGroups.set(String(chatId), group);
+  saveGroups();
+}
+
+/* ---------- Ойын күйі ---------- */
+
+const groupRooms = new Map();
+const groupTokens = new Map();
+const groupPlayerRooms = new Map();
+
+const users = new Map();
+const games = new Map();
+const invites = new Map();
+const userInvites = new Map();
+
+let queue = [];
+let gameSeq = 0;
+
+function send(u, msg) {
+  if (u && u.ws && u.ws.readyState === 1) {
+    u.ws.send(JSON.stringify(msg));
+  }
+}
+
+// Админнің таңдаған тақтасы мен тастары (тек админ үшін)
+function adminSkin(id) {
+  try {
+    const v = shop.view(id);
+
+    return v && v.use
+      ? { boards: v.use.boards, pieces: v.use.pieces }
+      : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+const isVipId = id => {
+  try {
+    return Boolean(id) && shop.isVip(id);
+  } catch (e) {
+    return false;
+  }
+};
+
+const pub = u => {
+  const admin = u ? isAdmin(u.id) : false;
+  const vip = u ? isVipId(u.id) : false;
+
+  return {
+    id: u ? u.id : null,
+    name: u ? u.name : 'Ойыншы',
+    avatar: u ? u.avatar : null,
+    admin,
+    rk: u ? rkTier(rkSeasonWins(u.id)) : 0,
+    owner: u ? isOwner(u.id) : false,
+    vip,
+    // Админ мен VIP таңдаған тақта/тасын қарсыласына көрсетеді
+    skin: admin || vip ? adminSkin(u.id) : null
+  };
+};
+
+const sideOfUser = (g, id) =>
+  g.p.w === String(id) ? 'w' : 'b';
+
+const legalList = (g, side) =>
+  g.st.turn === side &&
+  !g.st.over &&
+  !g.waitingForOpponent
+    ? G.legalMoves(g.st).map(({ from, to, cap }) => ({
+        from,
+        to,
+        cap
+      }))
+    : [];
+
+/* ---------- Көрермендер: ойынды тек қарау ---------- */
+
+const WATCH_LIMIT = 100;
+
+// Көрермендерге тек жүрістер мен ойын нәтижесі жіберіледі.
+// Чат (chat) пен дауыс (rtc) олар арқылы өтпейді.
+function sendWatchers(g, msg) {
+  if (!g || !g.watchers) return;
+
+  for (const id of g.watchers) {
+    send(users.get(id), msg);
+  }
+}
+
+// Ойында админ/owner бар болса, чатты ешкім (VIP те) бақыламайды
+function adminInGame(g) {
+  return Boolean(g) && (isAdmin(g.p.w) || isAdmin(g.p.b));
+}
+
+// Чат хабарламасы: ойыншыларға және VIP көрермендерге
+function broadcastChat(g, msg) {
+  for (const id of [g.p.w, g.p.b]) {
+    send(users.get(id), msg);
+  }
+
+  if (!g.watchers) return;
+
+  for (const id of g.watchers) {
+    if (isVipId(id) && !adminInGame(g)) send(users.get(id), msg);
+  }
+}
+
+function unwatch(u) {
+  if (!u || !u.watch) return;
+
+  const g = games.get(u.watch);
+
+  if (g && g.watchers) g.watchers.delete(u.id);
+
+  u.watch = null;
+}
+
+function watchState(g) {
+  return {
+    ...gameState(g, g.p.w),
+    you: 'w',
+    spectator: true,
+    legal: [],
+    chat: [],
+    chatHidden: adminInGame(g),
+    waitingForOpponent: false
+  };
+}
+
+function watchStart(u, playerId) {
+  const pid = String(playerId || '');
+  const target = users.get(pid);
+  const g = target && target.game ? games.get(target.game) : null;
+
+  const bad =
+    !g ||
+    pid === u.id ||
+    isBusy(u) ||
+    g.waitingForOpponent ||
+    g.st.over ||
+    (g.watchers && g.watchers.size >= WATCH_LIMIT && !g.watchers.has(u.id));
+
+  if (bad) {
+    return send(u, { t: 'error', code: 'watch_unavailable' });
+  }
+
+  unwatch(u);
+
+  dequeue(u.id);
+  removeUserInvite(u.id);
+  clearPInvitesOf(u.id);
+
+  if (!g.watchers) g.watchers = new Set();
+
+  g.watchers.add(u.id);
+  u.watch = g.id;
+
+  const st = watchState(g);
+
+  // VIP көрермен чат тарихын көреді
+  if (isVipId(u.id) && !adminInGame(g)) st.chat = g.chat;
+
+  send(u, st);
+}
+
+/* ---------- Таймерлер ---------- */
+
+function clearTurnTimer(g) {
+  if (!g) return;
+
+  if (g.turnTimer) {
+    clearTimeout(g.turnTimer);
+  }
+
+  g.turnTimer = null;
+  g.turnDeadline = null;
+  g.turnTimerSide = null;
+}
+
+function clearGroupWaitingTimer(room) {
+  if (!room) return;
+
+  if (room.waitingTimer) {
+    clearTimeout(room.waitingTimer);
+  }
+
+  room.waitingTimer = null;
+  room.waitingDeadline = null;
+}
+
+function groupWaitingMessage(room) {
+  const remaining = room.waitingDeadline
+    ? Math.max(
+        0,
+        Math.ceil(
+          (room.waitingDeadline - Date.now()) / 1000
+        )
+      )
+    : GROUP_WAIT_SECONDS;
+
+  return {
+    t: 'group_waiting',
+    count: room.connected.size,
+    seconds: remaining,
+    deadline: room.waitingDeadline || null,
+    message: 'Қарсыластың ойынға кіруін күтіңіз...'
+  };
+}
+
+function sendGroupWaiting(room) {
+  if (!room || !room.waitingDeadline || room.started) {
+    return;
+  }
+
+  const message = groupWaitingMessage(room);
+
+  for (const player of room.players) {
+    send(users.get(String(player.id)), message);
+  }
+}
+
+function sendTurnTimer(g) {
+  if (
+    !g ||
+    !games.has(g.id) ||
+    g.waitingForOpponent ||
+    g.st.over ||
+    !g.turnDeadline
+  ) {
+    return;
+  }
+
+  const remaining = Math.max(
+    0,
+    Math.ceil(
+      (g.turnDeadline - Date.now()) / 1000
+    )
+  );
+
+  const message = {
+    t: 'turn_timer',
+    side: g.turnTimerSide,
+    seconds: remaining,
+    deadline: g.turnDeadline
+  };
+
+  send(users.get(g.p.w), message);
+  send(users.get(g.p.b), message);
+  sendWatchers(g, message);
+}
+
+function startTurnTimer(g) {
+  if (!g || !games.has(g.id)) return;
+
+  clearTurnTimer(g);
+
+  if (g.waitingForOpponent || g.st.over) return;
+
+  const side = g.st.turn;
+  const deadline = Date.now() + TURN_MS;
+
+  g.turnTimerSide = side;
+  g.turnDeadline = deadline;
+
+  sendTurnTimer(g);
+
+  const checkTimeout = () => {
+    if (!games.has(g.id)) return;
+    if (g.waitingForOpponent || g.st.over) return;
+
+    if (
+      g.st.turn !== side ||
+      g.turnTimerSide !== side ||
+      g.turnDeadline !== deadline
+    ) {
+      return;
+    }
+
+    const remaining = deadline - Date.now();
+
+    if (remaining > 0) {
+      g.turnTimer = setTimeout(
+        checkTimeout,
+        remaining
+      );
+
+      if (g.turnTimer.unref) {
+        g.turnTimer.unref();
+      }
+
+      return;
+    }
+
+    finish(g, G.other(side), 'timeout');
+  };
+
+  g.turnTimer = setTimeout(
+    checkTimeout,
+    TURN_MS
+  );
+
+  if (g.turnTimer.unref) {
+    g.turnTimer.unref();
+  }
+}
+
+/* ---------- Ойын функциялары ---------- */
+
+function gameState(g, uid) {
+  const you = sideOfUser(g, uid);
+
+  const remaining = g.turnDeadline
+    ? Math.max(
+        0,
+        Math.ceil(
+          (g.turnDeadline - Date.now()) / 1000
+        )
+      )
+    : null;
+
+  const room = g.groupInfo
+    ? groupRooms.get(g.groupInfo.code)
+    : null;
+
+  return {
+    t: 'game',
+    id: g.id,
+    random: Boolean(g.random),
+    you,
+    players: {
+      w: pub(users.get(g.p.w)),
+      b: pub(users.get(g.p.b))
+    },
+    board: G.view(g.st),
+    turn: g.st.turn,
+    legal: legalList(g, you),
+    score: g.st.score,
+    chainPos: g.st.chain ? g.st.chain.pos : null,
+    chat: g.chat,
+    waitingForOpponent: Boolean(g.waitingForOpponent),
+    turnSeconds: remaining,
+    turnDeadline: g.turnDeadline || null,
+    groupWaitDeadline: room
+      ? room.waitingDeadline
+      : null
+  };
+}
+
+function dequeue(id) {
+  queue = queue.filter(x => x !== id);
+}
+
+function removeInvite(code) {
+  const invite = invites.get(code);
+  if (!invite) return;
+
+  clearTimeout(invite.timer);
+  clearTimeout(invite.offlineTimer);
+  invites.delete(code);
+
+  if (userInvites.get(invite.ownerId) === code) {
+    userInvites.delete(invite.ownerId);
+  }
+}
+
+function removeUserInvite(userId) {
+  const code = userInvites.get(userId);
+
+  if (code) removeInvite(code);
+}
+
+function startGame(a, b, groupInfo = null, random = false) {
+  playersDirty();
+  dequeue(a.id);
+  dequeue(b.id);
+
+  removeUserInvite(a.id);
+  removeUserInvite(b.id);
+
+  clearPInvitesOf(a.id);
+  clearPInvitesOf(b.id);
+
+  unwatch(a);
+  unwatch(b);
+
+  const [w, bl] = Math.random() < 0.5
+    ? [a, b]
+    : [b, a];
+
+  const g = {
+    id: 'g' + ++gameSeq,
+    p: {
+      w: w.id,
+      b: bl.id
+    },
+    st: G.newGame(),
+    chat: [],
+    timers: {},
+    turnTimer: null,
+    turnDeadline: null,
+    turnTimerSide: null,
+    lastChat: {},
+    groupInfo,
+    random,
+    waitingForOpponent: false
+  };
+
+  games.set(g.id, g);
+
+  stats.totalGames++;
+  saveStats();
+
+  a.game = b.game = g.id;
+
+  send(a, gameState(g, a.id));
+  send(b, gameState(g, b.id));
+
+  startTurnTimer(g);
+
+  return g;
+}
+
+function ensureRoomUser(player) {
+  const id = String(player.id);
+
+  let u = users.get(id);
+
+  if (!u) {
+    const name = player.username
+      ? '@' + player.username
+      : [
+          player.first_name,
+          player.last_name
+        ].filter(Boolean).join(' ') || 'Ойыншы';
+
+    u = {
+      id,
+      name,
+      username: player.username || '',
+      avatar: null,
+      game: null,
+      ws: null
+    };
+
+    users.set(id, u);
+  } else {
+    u.name = playerName(player);
+    u.username = player.username || '';
+  }
+
+  return u;
+}
+
+function createPendingGroupGame(room) {
+  const first = ensureRoomUser(room.players[0]);
+  const second = ensureRoomUser(room.players[1]);
+
+  dequeue(first.id);
+  dequeue(second.id);
+
+  removeUserInvite(first.id);
+  removeUserInvite(second.id);
+
+  unwatch(first);
+  unwatch(second);
+
+  const [w, bl] = Math.random() < 0.5
+    ? [first, second]
+    : [second, first];
+
+  const g = {
+    id: 'g' + ++gameSeq,
+    p: {
+      w: w.id,
+      b: bl.id
+    },
+    st: G.newGame(),
+    chat: [],
+    timers: {},
+    turnTimer: null,
+    turnDeadline: null,
+    turnTimerSide: null,
+    lastChat: {},
+    groupInfo: {
+      chatId: room.chatId,
+      code: room.code
+    },
+    waitingForOpponent: true
+  };
+
+  games.set(g.id, g);
+
+  first.game = g.id;
+  second.game = g.id;
+
+  room.pendingGame = g;
+
+  return g;
+}
+
+/* ---------- Топ бөлмелерін тазалау ---------- */
+
+function cleanupGroupRoom(code) {
+  const room = groupRooms.get(code);
+
+  if (!room) return;
+
+  clearTimeout(room.timer);
+  clearTimeout(room.searchTimer);
+  clearGroupWaitingTimer(room);
+
+  if (
+    room.pendingGame &&
+    games.has(room.pendingGame.id)
+  ) {
+    const pending = room.pendingGame;
+
+    clearTurnTimer(pending);
+    games.delete(pending.id);
+
+    for (const id of [pending.p.w, pending.p.b]) {
+      const user = users.get(id);
+
+      if (user && user.game === pending.id) {
+        user.game = null;
+      }
+
+      send(user, {
+        t: 'group_error',
+        code: 'expired'
+      });
+    }
+  }
+
+  for (const player of room.players) {
+    const id = String(player.id);
+
+    if (groupPlayerRooms.get(id) === code) {
+      groupPlayerRooms.delete(id);
+    }
+  }
+
+  for (const token of room.tokens.values()) {
+    groupTokens.delete(token);
+  }
+
+  if (room.sharedToken) {
+    groupTokens.delete(room.sharedToken);
+  }
+
+  groupRooms.delete(code);
+}
+
+/* ---------- Топты блоктау ---------- */
+
+function blockGroup(id) {
+  id = String(id).trim();
+
+  if (!/^-?\d+$/.test(id)) {
+    return false;
+  }
+
+  blockedGroups.add(id);
+  saveBlockedGroups();
+
+  // Осы топтағы барлық бөлмелерді жабу
+  for (const [code, room] of [...groupRooms.entries()]) {
+    if (String(room.chatId) === id) {
+      cleanupGroupRoom(code);
+    }
+  }
+
+  // Осы топқа қатысты белсенді ойындарды тоқтату
+  for (const [gameId, g] of [...games.entries()]) {
+    if (
+      g.groupInfo &&
+      String(g.groupInfo.chatId) === id
+    ) {
+      clearTurnTimer(g);
+      Object.values(g.timers || {}).forEach(clearTimeout);
+
+      games.delete(gameId);
+
+      for (const playerId of [g.p.w, g.p.b]) {
+        const u = users.get(playerId);
+
+        if (u && u.game === gameId) {
+          u.game = null;
+        }
+
+        send(u, {
+          t: 'group_error',
+          code: 'blocked'
+        });
+      }
+    }
+  }
+
+  console.log('Топ блокталды:', id);
+
+  return true;
+}
+
+function unblockGroup(id) {
+  id = String(id).trim();
+
+  if (!blockedGroups.has(id)) {
+    return false;
+  }
+
+  blockedGroups.delete(id);
+  saveBlockedGroups();
+
+  console.log('Топ блоктан шығарылды:', id);
+
+  return true;
+}
+
+/* ---------- Админ хабарламалары ---------- */
+
+const adminBroadcastDrafts = new Map();
+const adminActions = new Map();
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runBroadcast(adminId, messageText) {
+  let success = 0;
+  let failed = 0;
+  let removed = 0;
+
+  const groups = [...savedGroups.values()]
+    .filter(g => !isGroupBlocked(g.id));
+
+  for (const group of groups) {
+    try {
+      await telegramApi('sendMessage', {
+        chat_id: group.id,
+        text: messageText
+      });
+
+      success++;
+    } catch (error) {
+      failed++;
+
+      const description = error.message || '';
+
+      if (
+        description.includes('chat not found') ||
+        description.includes('bot was kicked') ||
+        description.includes('bot was blocked')
+      ) {
+        removeGroup(group.id);
+        removed++;
+      }
+
+      const retryAfter = Number(
+        error.telegram?.parameters?.retry_after || 0
+      );
+
+      if (retryAfter > 0) {
+        await delay((retryAfter + 1) * 1000);
+      }
+
+      console.error(
+        'Хабар жіберу қатесі:',
+        group.title,
+        error.message
+      );
+    }
+
+    await delay(60);
+  }
+
+  try {
+    await telegramApi('sendMessage', {
+      chat_id: adminId,
+      text:
+        '📢 <b>ХАБАР ТАРАТУ АЯҚТАЛДЫ</b>\n\n' +
+        `👥 Барлық қолжетімді топ: ${groups.length}\n` +
+        `✅ Жеткізілді: ${success}\n` +
+        `❌ Жеткізілмеді: ${failed}\n` +
+        `🗑 Тізімнен өшірілді: ${removed}`,
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error(
+      'Админге есеп жіберілмеді:',
+      error.message
+    );
+  }
+}
+
+/* ---------- Админ панель пернетақтасы ---------- */
+
+function adminKeyboard(adminId) {
+  const rows = [];
+
+  if (hasPermission(adminId, 'stats')) {
+    rows.push([{
+      text: '📊 Статистика',
+      callback_data: 'adm:stats'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'groups')) {
+    rows.push([{
+      text: '👥 Қосылған топтар',
+      callback_data: 'adm:groups:0'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'games')) {
+    rows.push([{
+      text: '🎮 Белсенді ойындар',
+      callback_data: 'adm:games'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'broadcast')) {
+    rows.push([{
+      text: '📢 Топтарға хабарлама',
+      callback_data: 'adm:broadcast'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'broadcast')) {
+    rows.push([{
+      text: '📨 Пайдаланушыларға хабарлама',
+      callback_data: 'adm:ubc'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'coins')) {
+    rows.push([{
+      text: '🪙 Койн беру',
+      callback_data: 'adm:coins'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'vip')) {
+    rows.push([{
+      text: '👑 VIP беру',
+      callback_data: 'adm:vip'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'group_manage')) {
+    rows.push([{
+      text: '🚫 Топтарды басқару',
+      callback_data: 'adm:block'
+    }]);
+  }
+
+  if (hasPermission(adminId, 'admin_manage')) {
+    rows.push([{
+      text: '👑 Админдерді басқару',
+      callback_data: 'adm:admins'
+    }]);
+  }
+
+  rows.push([{
+    text: '🔄 Жаңарту',
+    callback_data: 'adm:home'
+  }]);
+
+  return {
+    inline_keyboard: rows
+  };
+}
+
+async function openAdmin(chatId) {
+  return telegramApi('sendMessage', {
+    chat_id: chatId,
+    text:
+      '🔐 <b>SHASHKA BOT ADMIN PANEL</b>\n\n' +
+      'Қош келдіңіз!\n\n' +
+      'Басқару бөлімін таңдаңыз:',
+    parse_mode: 'HTML',
+    reply_markup: adminKeyboard(chatId)
+  });
+}
+
+async function editAdminMessage(
+  chatId,
+  messageId,
+  text,
+  keyboard
+) {
+  try {
+    return await telegramApi('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  } catch (error) {
+    // «🔄 Жаңарту» басылғанда мәтін өзгермесе Telegram қате береді — елемейміз
+    if (String(error.message).includes('message is not modified')) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/* ---------- Админдер тізімі ---------- */
+
+function adminsKeyboard() {
+  const rows = [
+    [{
+      text: '➕ Админ қосу',
+      callback_data: 'adm:admin:add'
+    }]
+  ];
+
+  for (const admin of admins.values()) {
+    rows.push([{
+      text: '👤 ' + admin.id,
+      callback_data: 'adm:admin:' + admin.id
+    }]);
+  }
+
+  rows.push([{
+    text: '🔙 Басты мәзір',
+    callback_data: 'adm:home'
+  }]);
+
+  return {
+    inline_keyboard: rows
+  };
+}
+
+function adminDetailKeyboard(id) {
+  const admin = admins.get(String(id));
+
+  if (!admin) {
+    return {
+      inline_keyboard: [[{
+        text: '🔙 Админдер',
+        callback_data: 'adm:admins'
+      }]]
+    };
+  }
+
+  const rows = [];
+
+  for (const [permission, title] of Object.entries(PERMISSIONS)) {
+    const enabled = admin.permissions.includes(permission);
+
+    rows.push([{
+      text:
+        (enabled ? '✅ ' : '❌ ') + title,
+      callback_data:
+        `adm:perm:${id}:${permission}`
+    }]);
+  }
+
+  rows.push([{
+    text: '🗑 Админді өшіру',
+    callback_data: 'adm:admin:remove:' + id
+  }]);
+
+  rows.push([{
+    text: '🔙 Админдер тізімі',
+    callback_data: 'adm:admins'
+  }]);
+
+  return {
+    inline_keyboard: rows
+  };
+}
+
+/* ---------- Топ басқару мәзірі ---------- */
+
+function groupManageKeyboard() {
+  return {
+    inline_keyboard: [
+      [{
+        text: '🚫 Топты блоктау',
+        callback_data: 'adm:block:add'
+      }],
+      [{
+        text: '🔓 Топты блоктан шығару',
+        callback_data: 'adm:block:remove'
+      }],
+      [{
+        text: '📋 Блокталған топтар',
+        callback_data: 'adm:block:list'
+      }],
+      [{
+        text: '🔙 Басты мәзір',
+        callback_data: 'adm:home'
+      }]
+    ]
+  };
+}
+
+/* ---------- Админ callback ---------- */
+
+function requiredPermission(data) {
+  if (data === 'adm:stats') return 'stats';
+
+  if (
+    data.startsWith('adm:groups:') ||
+    data.startsWith('adm:group:')
+  ) return 'groups';
+
+  if (data === 'adm:games') return 'games';
+
+  if (data.startsWith('adm:coins')) return 'coins';
+
+  if (data.startsWith('adm:vip')) return 'vip';
+
+  if (
+    data.startsWith('adm:broadcast') ||
+    data.startsWith('adm:ubc')
+  ) return 'broadcast';
+
+  if (
+    data.startsWith('adm:block') ||
+    data.startsWith('adm:groupblock:') ||
+    data.startsWith('adm:groupunblock:')
+  ) return 'group_manage';
+
+  if (
+    data.startsWith('adm:admin') ||
+    data.startsWith('adm:perm:')
+  ) return 'admin_manage';
+
+  return null;
+}
+
+async function handleAdminCallback(query) {
+  const data = String(query.data || '');
+
+  if (!data.startsWith('adm:')) {
+    return false;
+  }
+
+  const adminId = String(query.from.id);
+
+  if (!isAdmin(adminId)) {
+    await answerCallback(
+      query.id,
+      '⛔ Рұқсат жоқ!',
+      true
+    );
+
+    return true;
+  }
+
+  if (
+    !query.message ||
+    query.message.chat.type !== 'private'
+  ) {
+    await answerCallback(
+      query.id,
+      'Админ панель тек жеке чатта жұмыс істейді.',
+      true
+    );
+
+    return true;
+  }
+
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  const needed = requiredPermission(data);
+
+  if (needed && !hasPermission(adminId, needed)) {
+    await answerCallback(
+      query.id,
+      '⛔ Бұл бөлімге рұқсатыңыз жоқ!',
+      true
+    );
+
+    return true;
+  }
+
+  /* Хабар тарату */
+
+  if (data === 'adm:broadcast') {
+    adminBroadcastDrafts.set(adminId, {
+      waiting: true,
+      text: null
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '📢 <b>ТОПТАРҒА ХАБАР ЖІБЕРУ</b>\n\n' +
+      'Жібергіңіз келген хабарламаны осы чатқа жазыңыз.\n\n' +
+      '❌ Болдырмау үшін /cancel жазыңыз.',
+      {
+        inline_keyboard: [[{
+          text: '❌ Болдырмау',
+          callback_data: 'adm:broadcast:cancel'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Хабарлама күтілуде.');
+
+    return true;
+  }
+
+  if (data === 'adm:broadcast:confirm') {
+    const draft = adminBroadcastDrafts.get(adminId);
+
+    if (!draft || !draft.text) {
+      await answerCallback(
+        query.id,
+        'Хабарлама табылмады.',
+        true
+      );
+
+      return true;
+    }
+
+    const messageText = draft.text;
+
+    adminBroadcastDrafts.delete(adminId);
+
+    await answerCallback(
+      query.id,
+      'Жіберу басталды!'
+    );
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '📢 <b>ХАБАР ТАРАТЫЛУДА...</b>\n\n' +
+      'Хабарлама қолжетімді топтарға жіберілуде.',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Басты мәзір',
+          callback_data: 'adm:home'
+        }]]
+      }
+    );
+
+    runBroadcast(chatId, messageText).catch(
+      error => console.error(error.message)
+    );
+
+    return true;
+  }
+
+  if (data === 'adm:broadcast:cancel') {
+    adminBroadcastDrafts.delete(adminId);
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '❌ Хабарлама тарату тоқтатылды.',
+      adminKeyboard(adminId)
+    );
+
+    await answerCallback(query.id, 'Болдырылмады.');
+
+    return true;
+  }
+
+  /* Пайдаланушыларға хабар тарату */
+
+  if (data === 'adm:ubc') {
+    adminBroadcastDrafts.set(adminId, {
+      waiting: true,
+      target: 'users'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '📨 <b>ПАЙДАЛАНУШЫЛАРҒА ХАБАРЛАМА</b>\n\n' +
+      `👤 Алушылар саны: <b>${reachableUserIds().length}</b>\n\n` +
+      'Жібергіңіз келген хабарламаны осы чатқа жіберіңіз:\n' +
+      '• мәтін немесе сілтеме\n' +
+      '• фото (қаласаңыз, жазуымен бірге)\n\n' +
+      'Хабарлама дәл өзіңіз жібергендей болып барлығына жетеді.\n\n' +
+      '❌ Болдырмау үшін /cancel жазыңыз.',
+      {
+        inline_keyboard: [[{
+          text: '❌ Болдырмау',
+          callback_data: 'adm:ubc:cancel'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Хабарлама күтілуде.');
+
+    return true;
+  }
+
+  if (data === 'adm:ubc:confirm') {
+    const draft = adminBroadcastDrafts.get(adminId);
+
+    if (!draft || draft.target !== 'users' || !draft.source) {
+      await answerCallback(query.id, 'Хабарлама табылмады.', true);
+      return true;
+    }
+
+    if (userBroadcastRunning) {
+      await answerCallback(
+        query.id,
+        'Алдыңғы тарату әлі аяқталған жоқ.',
+        true
+      );
+      return true;
+    }
+
+    userBroadcastRunning = true;
+    adminBroadcastDrafts.delete(adminId);
+
+    await answerCallback(query.id, 'Жіберу басталды!');
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '📨 <b>ХАБАР ТАРАТЫЛУДА...</b>\n\n' +
+      'Аяқталған соң есеп жіберемін.',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Басты мәзір',
+          callback_data: 'adm:home'
+        }]]
+      }
+    );
+
+    runUserBroadcast(
+      chatId,
+      draft.source.chatId,
+      draft.source.messageId
+    ).catch(error => {
+      userBroadcastRunning = false;
+      console.error(error.message);
+    });
+
+    return true;
+  }
+
+  if (data === 'adm:ubc:cancel') {
+    adminBroadcastDrafts.delete(adminId);
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '❌ Хабарлама тарату тоқтатылды.',
+      adminKeyboard(adminId)
+    );
+
+    await answerCallback(query.id, 'Болдырылмады.');
+
+    return true;
+  }
+
+  /* Койн беру */
+
+  if (data === 'adm:coins') {
+    adminActions.set(adminId, {
+      action: 'coins_id'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🪙 <b>КОЙН БЕРУ</b>\n\n' +
+      'Койн беретін адамның Telegram ID нөмірін жіберіңіз.\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Басты мәзір',
+          callback_data: 'adm:home'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Telegram ID күтілуде.');
+
+    return true;
+  }
+
+  /* VIP беру */
+
+  if (data === 'adm:vip') {
+    adminActions.set(adminId, {
+      action: 'vip_id'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '👑 <b>VIP БЕРУ</b>\n\n' +
+      'VIP беретін адамның Telegram ID нөмірін жіберіңіз.\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Басты мәзір',
+          callback_data: 'adm:home'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Telegram ID күтілуде.');
+
+    return true;
+  }
+
+  /* Админ қосу */
+
+  if (data === 'adm:admin:add') {
+    adminActions.set(adminId, {
+      action: 'add_admin'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '➕ <b>АДМИН ҚОСУ</b>\n\n' +
+      'Жаңа админнің Telegram ID нөмірін жіберіңіз.\n\n' +
+      'Жаңа админге бастапқыда статистика, топтар және ойындар бөлімдеріне рұқсат беріледі.\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Артқа',
+          callback_data: 'adm:admins'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Telegram ID күтілуде.');
+
+    return true;
+  }
+
+  /* Админ өшіру */
+
+  if (data.startsWith('adm:admin:remove:')) {
+    const targetId = data.slice(
+      'adm:admin:remove:'.length
+    );
+
+    if (isOwner(targetId)) {
+      await answerCallback(
+        query.id,
+        'Негізгі админді өшіру мүмкін емес!',
+        true
+      );
+
+      return true;
+    }
+
+    if (!admins.has(targetId)) {
+      await answerCallback(
+        query.id,
+        'Админ табылмады.',
+        true
+      );
+
+      return true;
+    }
+
+    admins.delete(targetId);
+    saveAdmins();
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '✅ Админ өшірілді.\n\n' +
+      `🆔 ID: <code>${escapeHtml(targetId)}</code>`,
+      adminsKeyboard()
+    );
+
+    await answerCallback(query.id, 'Админ өшірілді.');
+
+    return true;
+  }
+
+  /* Админ рұқсаттарын өзгерту */
+
+  if (data.startsWith('adm:perm:')) {
+    const parts = data.split(':');
+
+    const targetId = parts[2];
+    const permission = parts[3];
+
+    const target = admins.get(targetId);
+
+    if (!target || !PERMISSIONS[permission]) {
+      await answerCallback(
+        query.id,
+        'Админ немесе рұқсат табылмады.',
+        true
+      );
+
+      return true;
+    }
+
+    const index = target.permissions.indexOf(permission);
+
+    if (index >= 0) {
+      target.permissions.splice(index, 1);
+    } else {
+      target.permissions.push(permission);
+    }
+
+    admins.set(targetId, target);
+    saveAdmins();
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '👑 <b>АДМИН РҰҚСАТТАРЫ</b>\n\n' +
+      `🆔 ID: <code>${escapeHtml(targetId)}</code>\n\n` +
+      'Қажетті бөлімдерді қосыңыз немесе өшіріңіз:',
+      adminDetailKeyboard(targetId)
+    );
+
+    await answerCallback(query.id, 'Рұқсат өзгертілді.');
+
+    return true;
+  }
+
+  /* Админнің мәліметтері */
+
+  if (
+    data.startsWith('adm:admin:') &&
+    !data.startsWith('adm:admin:add') &&
+    !data.startsWith('adm:admin:remove:')
+  ) {
+    const targetId = data.slice('adm:admin:'.length);
+    const target = admins.get(targetId);
+
+    if (!target) {
+      await answerCallback(query.id, 'Админ табылмады.', true);
+      return true;
+    }
+
+    const permissions = target.permissions
+      .map(p => PERMISSIONS[p])
+      .filter(Boolean)
+      .join('\n') || 'Рұқсат берілмеген';
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '👑 <b>АДМИН АҚПАРАТЫ</b>\n\n' +
+      `🆔 ID: <code>${escapeHtml(targetId)}</code>\n\n` +
+      `🔐 Рұқсаттары:\n${permissions}\n\n` +
+      'Рұқсаттарды өзгерту үшін төмендегі батырмаларды басыңыз.',
+      adminDetailKeyboard(targetId)
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Топты блоктау */
+
+  if (data === 'adm:block:add') {
+    adminActions.set(adminId, {
+      action: 'block_group'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🚫 <b>ТОПТЫ БЛОКТАУ</b>\n\n' +
+      'Блоктағыңыз келген топтың ID нөмірін жіберіңіз.\n\n' +
+      'Мысалы:\n' +
+      '<code>-1001234567890</code>\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Артқа',
+          callback_data: 'adm:block'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Топ ID күтілуде.');
+
+    return true;
+  }
+
+  if (data === 'adm:block:remove') {
+    adminActions.set(adminId, {
+      action: 'unblock_group'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🔓 <b>ТОПТЫ БЛОКТАН ШЫҒАРУ</b>\n\n' +
+      'Блоктан шығарғыңыз келген топтың ID нөмірін жіберіңіз.\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Артқа',
+          callback_data: 'adm:block'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'Топ ID күтілуде.');
+
+    return true;
+  }
+
+  if (data === 'adm:block:list') {
+    const ids = [...blockedGroups];
+
+    const list = ids.length
+      ? ids.map((id, i) =>
+          `${i + 1}. <code>${escapeHtml(id)}</code>`
+        ).join('\n')
+      : 'Блокталған топ жоқ.';
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🚫 <b>БЛОКТАЛҒАН ТОПТАР</b>\n\n' +
+      `📊 Барлығы: ${ids.length}\n\n${list}`,
+      groupManageKeyboard()
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Админдер мәзірі */
+
+  if (data === 'adm:admins') {
+    const list = [...admins.values()];
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '👑 <b>АДМИНДЕРДІ БАСҚАРУ</b>\n\n' +
+      `👑 Негізгі админ: <code>${OWNER_ID}</code>\n` +
+      `👥 Қосымша админдер: ${list.length}\n\n` +
+      'Админ қосу немесе тізімнен админді таңдау:',
+      adminsKeyboard()
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Топ басқару мәзірі */
+
+  if (data === 'adm:block') {
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🚫 <b>ТОПТАРДЫ БАСҚАРУ</b>\n\n' +
+      `📊 Блокталған топтар: ${blockedGroups.size}\n\n` +
+      'Қажетті әрекетті таңдаңыз:',
+      groupManageKeyboard()
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Негізгі мәзір */
+
+  if (data === 'adm:home') {
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🔐 <b>SHASHKA BOT ADMIN PANEL</b>\n\n' +
+      'Басқару бөлімін таңдаңыз:',
+      adminKeyboard(adminId)
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Статистика */
+
+  if (data === 'adm:stats') {
+    const all = [...savedGroups.values()];
+
+    const publicCount = all.filter(
+      g => g.type === 'public'
+    ).length;
+
+    const privateCount = all.filter(
+      g => g.type === 'private'
+    ).length;
+
+    const text =
+      '📊 <b>БОТ СТАТИСТИКАСЫ</b>\n\n' +
+      `👥 Қосылған топтар: ${all.length}\n` +
+      `🌐 Ашық топтар: ${publicCount}\n` +
+      `🔒 Жабық топтар: ${privateCount}\n` +
+      `🚫 Блокталған топтар: ${blockedGroups.size}\n\n` +
+      `🎮 Барлық ойындар: ${stats.totalGames}\n` +
+      `👥 Топтағы ойындар: ${stats.totalGroupGames}\n` +
+      `⚔️ Белсенді ойындар: ${games.size}\n\n` +
+      `👤 Барлық ойыншылар: ${Object.keys(stats.users).length}\n` +
+      `🟢 Қазір онлайн: ${[...users.values()].filter(u => u.ws).length}\n\n` +
+      `💾 Сақтау: ${escapeHtml(STORAGE_MODE)}`;
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      text,
+      adminKeyboard(adminId)
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Қосылған топтар */
+
+  if (data.startsWith('adm:groups:')) {
+    const requestedPage = Number(
+      data.split(':')[2]
+    );
+
+    const page = Number.isInteger(requestedPage)
+      ? Math.max(0, requestedPage)
+      : 0;
+
+    const all = [...savedGroups.values()].sort(
+      (a, b) => b.addedAt - a.addedAt
+    );
+
+    const perPage = 8;
+
+    const totalPages = Math.max(
+      1,
+      Math.ceil(all.length / perPage)
+    );
+
+    const current = Math.min(
+      page,
+      totalPages - 1
+    );
+
+    const items = all.slice(
+      current * perPage,
+      (current + 1) * perPage
+    );
+
+    let text =
+      '👥 <b>ҚОСЫЛҒАН ТОПТАР</b>\n\n' +
+      `📊 Жалпы топ: ${all.length}\n` +
+      `📄 Бет: ${current + 1}/${totalPages}\n\n`;
+
+    const rows = items.map((g, index) => [{
+      text:
+        `${current * perPage + index + 1}. ${g.title}`.slice(0, 60),
+      callback_data: 'adm:group:' + g.id
+    }]);
+
+    const nav = [];
+
+    if (current > 0) {
+      nav.push({
+        text: '⬅️ Артқа',
+        callback_data: 'adm:groups:' + (current - 1)
+      });
+    }
+
+    if (current + 1 < totalPages) {
+      nav.push({
+        text: 'Келесі ➡️',
+        callback_data: 'adm:groups:' + (current + 1)
+      });
+    }
+
+    if (nav.length) rows.push(nav);
+
+    rows.push([{
+      text: '🔙 Басты мәзір',
+      callback_data: 'adm:home'
+    }]);
+
+    if (!items.length) {
+      text += 'Әзірге бот қосылған топ жоқ.';
+    }
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      text,
+      { inline_keyboard: rows }
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  /* Топ ақпараты */
+
+  if (data.startsWith('adm:group:')) {
+    const id = data.slice('adm:group:'.length);
+    const group = savedGroups.get(id);
+
+    if (!group) {
+      await editAdminMessage(
+        chatId,
+        messageId,
+        '⚠️ Бұл топ тізімде жоқ.',
+        {
+          inline_keyboard: [[{
+            text: '🔙 Топтар тізімі',
+            callback_data: 'adm:groups:0'
+          }]]
+        }
+      );
+
+      await answerCallback(query.id, 'Топ табылмады.');
+
+      return true;
+    }
+
+    const link = group.inviteLink
+      ? `\n\n🔗 <a href="${escapeHtml(group.inviteLink)}">ТОПҚА ӨТУ</a>`
+      : '\n\n🔗 Сілтеме жоқ';
+
+    const blocked = isGroupBlocked(id);
+
+    const text =
+      '👥 <b>ТОП АҚПАРАТЫ</b>\n\n' +
+      `📝 Атауы: ${escapeHtml(group.title)}\n` +
+      `🆔 ID: <code>${escapeHtml(group.id)}</code>\n` +
+      `🌐 Түрі: ${group.type === 'public' ? 'Ашық топ' : 'Жабық топ'}\n` +
+      `🎮 Өткізілген ойындар: ${Number(group.gameCount) || 0}\n` +
+      `🚫 Күйі: ${blocked ? 'Блокталған' : 'Белсенді'}` +
+      link;
+
+    const rows = [];
+
+    if (blocked) {
+      rows.push([{
+        text: '🔓 Блоктан шығару',
+        callback_data: 'adm:groupunblock:' + id
+      }]);
+    } else {
+      rows.push([{
+        text: '🚫 Блоктау',
+        callback_data: 'adm:groupblock:' + id
+      }]);
+    }
+
+    rows.push([{
+      text: '🔙 Топтар тізімі',
+      callback_data: 'adm:groups:0'
+    }]);
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      text,
+      { inline_keyboard: rows }
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  if (data.startsWith('adm:groupblock:')) {
+    const id = data.slice('adm:groupblock:'.length);
+
+    if (!blockGroup(id)) {
+      await answerCallback(
+        query.id,
+        'Топ ID қате!',
+        true
+      );
+
+      return true;
+    }
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🚫 <b>ТОП БЛОКТАЛДЫ</b>\n\n' +
+      `🆔 ID: <code>${escapeHtml(id)}</code>\n\n` +
+      'Бұл топта боттың ойын функциялары тоқтатылды.',
+      groupManageKeyboard()
+    );
+
+    await answerCallback(query.id, 'Топ блокталды.');
+
+    return true;
+  }
+
+  if (data.startsWith('adm:groupunblock:')) {
+    const id = data.slice('adm:groupunblock:'.length);
+
+    if (!unblockGroup(id)) {
+      await answerCallback(
+        query.id,
+        'Бұл топ блокталмаған.',
+        true
+      );
+
+      return true;
+    }
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '🔓 <b>ТОП БЛОКТАН ШЫҒАРЫЛДЫ</b>\n\n' +
+      `🆔 ID: <code>${escapeHtml(id)}</code>`,
+      groupManageKeyboard()
+    );
+
+    await answerCallback(query.id, 'Топ блоктан шығарылды.');
+
+    return true;
+  }
+
+  /* Белсенді ойындар */
+
+  if (data === 'adm:games') {
+    const text =
+      '🎮 <b>БЕЛСЕНДІ ОЙЫНДАР</b>\n\n' +
+      `Қазір жүріп жатқан ойындар: ${games.size}\n` +
+      `Іздеу кезегіндегі ойыншылар: ${queue.length}\n` +
+      `Топтық бөлмелер: ${groupRooms.size}`;
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      text,
+      adminKeyboard(adminId)
+    );
+
+    await answerCallback(query.id, 'Дайын!');
+
+    return true;
+  }
+
+  await answerCallback(
+    query.id,
+    'Белгісіз команда.'
+  );
+
+  return true;
+}
+
+/* ---------- Callback жауабы ---------- */
+
+async function answerCallback(id, text, alert = false) {
+  try {
+    await telegramApi('answerCallbackQuery', {
+      callback_query_id: id,
+      text,
+      show_alert: alert
+    });
+  } catch (error) {
+    console.error(
+      'Жауап жіберу қатесі:',
+      error.message
+    );
+  }
+}
+
+/* ---------- Топтық ойын ---------- */
+
+function createGroupToken(room, player) {
+  const userId = String(player.id);
+
+  let token = room.tokens.get(userId);
+
+  if (token) return token;
+
+  token = crypto.randomBytes(16).toString('hex');
+
+  room.tokens.set(userId, token);
+
+  groupTokens.set(token, {
+    code: room.code,
+    userId
+  });
+
+  return token;
+}
+
+/* Топтағы батырма үшін ортақ токен (тек осы бөлменің 2 ойыншысы кіре алады) */
+function createSharedToken(room) {
+  if (room.sharedToken) return room.sharedToken;
+
+  const token = crypto.randomBytes(16).toString('hex');
+
+  room.sharedToken = token;
+
+  groupTokens.set(token, {
+    code: room.code,
+    userId: null,
+    shared: true
+  });
+
+  return token;
+}
+
+function roomText(room) {
+  const lang = getLang(room.chatId);
+
+  let text = tx(lang, 'roomTitle') + '\n\n';
+
+  room.players.forEach((player, index) => {
+    const id = String(player.id);
+    const entered = room.entered.has(id);
+
+    text +=
+      `${index + 1}. ${playerLink(player)}` +
+      `${entered ? ' ✅' : ''}\n`;
+  });
+
+  if (room.players.length < 2) {
+    text += tx(lang, 'roomSearching');
+  } else if (!room.started) {
+    text += tx(lang, 'roomFound');
+  } else {
+    text += tx(lang, 'roomStarted');
+  }
+
+  return text;
+}
+
+function roomKeyboard(room) {
+  const lang = getLang(room.chatId);
+
+  if (room.players.length < 2) {
+    return {
+      inline_keyboard: [[{
+        text: tx(lang, 'btnJoin'),
+        callback_data: 'gj:' + room.code
+      }]]
+    };
+  }
+
+  if (!room.started) {
+    return {
+      inline_keyboard: [[{
+        text: tx(lang, 'btnEnter'),
+        url: MINI_APP_LINK + 'group_' + createSharedToken(room)
+      }]]
+    };
+  }
+
+  return {
+    inline_keyboard: []
+  };
+}
+
+async function updateGroupRoom(room) {
+  if (!room.messageId) return;
+
+  await telegramApi('editMessageText', {
+    chat_id: room.chatId,
+    message_id: room.messageId,
+    text: roomText(room),
+    parse_mode: 'HTML',
+    reply_markup: roomKeyboard(room)
+  });
+}
+
+async function replaceGroupRoomMessage(room) {
+  if (!room) return;
+
+  if (room.messageId) {
+    try {
+      await telegramApi('deleteMessage', {
+        chat_id: room.chatId,
+        message_id: room.messageId
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
+  const lang = getLang(room.chatId);
+
+  const text =
+    tx(lang, 'roomTitle') + '\n\n' +
+    room.players.map((player, index) =>
+      `${index + 1}. ${playerLink(player)} ✅`
+    ).join('\n') +
+    tx(lang, 'roomStarted');
+
+  const sent = await telegramApi('sendMessage', {
+    chat_id: room.chatId,
+    text,
+    parse_mode: 'HTML'
+  });
+
+  room.messageId = sent.result.message_id;
+}
+
+async function expireGroupSearch(code) {
+  const room = groupRooms.get(code);
+
+  if (!room || room.started || room.players.length >= 2) {
+    return;
+  }
+
+  const chatId = room.chatId;
+
+  const messageIds = [
+    room.commandMessageId,
+    room.messageId
+  ].filter(Boolean);
+
+  cleanupGroupRoom(code);
+
+  for (const messageId of messageIds) {
+    try {
+      await telegramApi('deleteMessage', {
+        chat_id: chatId,
+        message_id: messageId
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+}
+
+async function announceGroupGame(room) {
+  if (room.players.length !== 2) return;
+
+  const oldMessageId = room.messageId;
+
+  // Жаңа хабарлама: ойынға кіру батырмасымен (ескісін өзгертпей, жаңадан жібереміз)
+  try {
+    const sent = await telegramApi('sendMessage', {
+      chat_id: room.chatId,
+      text: roomText(room),
+      parse_mode: 'HTML',
+      reply_markup: roomKeyboard(room)
+    });
+
+    room.messageId = sent.result.message_id;
+  } catch (error) {
+    console.error('Топқа ойын хабарламасы жіберілмеді:', error.message);
+    return;
+  }
+
+  // Ескі «Ойынға қосылу» хабарламасын өшіреміз
+  if (oldMessageId) {
+    try {
+      await telegramApi('deleteMessage', {
+        chat_id: room.chatId,
+        message_id: oldMessageId
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+}
+
+/* ---------- Топ callback ---------- */
+
+async function handleGroupCallback(query) {
+  const data = String(query.data || '');
+  const from = query.from;
+  const userId = String(from.id);
+
+  const match = data.match(/^gj:([a-f0-9]{12})$/);
+
+  if (!match) return false;
+
+  const code = match[1];
+  const room = groupRooms.get(code);
+  const lang = getLang(
+    query.message && query.message.chat
+      ? query.message.chat.id
+      : (room ? room.chatId : '')
+  );
+
+  if (!room || room.started) {
+    await answerCallback(
+      query.id,
+      tx(lang, 'roomExpired'),
+      true
+    );
+
+    return true;
+  }
+
+  if (isGroupBlocked(room.chatId)) {
+    await answerCallback(
+      query.id,
+      tx(lang, 'groupBlocked'),
+      true
+    );
+
+    cleanupGroupRoom(code);
+
+    return true;
+  }
+
+  const already = room.players.some(
+    player => String(player.id) === userId
+  );
+
+  if (already) {
+    await answerCallback(
+      query.id,
+      tx(lang, 'alreadyJoined')
+    );
+
+    return true;
+  }
+
+  if (room.players.length >= 2) {
+    await answerCallback(
+      query.id,
+      tx(lang, 'roomFull'),
+      true
+    );
+
+    return true;
+  }
+
+  if (groupPlayerRooms.has(userId)) {
+    await answerCallback(
+      query.id,
+      tx(lang, 'otherRoom'),
+      true
+    );
+
+    return true;
+  }
+
+  const player = {
+    id: userId,
+    username: from.username || '',
+    first_name: from.first_name || '',
+    last_name: from.last_name || ''
+  };
+
+  room.players.push(player);
+  groupPlayerRooms.set(userId, code);
+
+  await answerCallback(
+    query.id,
+    tx(lang, 'joined')
+  );
+
+  if (room.players.length === 2) {
+    clearTimeout(room.searchTimer);
+    room.searchTimer = null;
+
+    await announceGroupGame(room);
+  } else {
+    try {
+      await updateGroupRoom(room);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
+  return true;
+}
+
+/* ---------- Жеке чаттағы /start батырмалары ---------- */
+
+const MINI_APP_URL = process.env.MINI_APP_URL || 'https://shashka-mini-app.raxatarzubaev.workers.dev';
+
+function mainKeyboard(lang) {
+  return {
+    inline_keyboard: [
+      [{
+        text: tx(lang, 'btnStart'),
+        web_app: { url: MINI_APP_URL + '/?lang=' + lang }
+      }],
+      [{
+        text: tx(lang, 'btnGroup'),
+        url: 'https://t.me/shashkaoyinibot?startgroup=true'
+      }]
+    ]
+  };
+}
+
+async function sendMainMenu(chatId, lang) {
+  return telegramApi('sendMessage', {
+    chat_id: chatId,
+    text: tx(lang, 'startText'),
+    parse_mode: 'HTML',
+    reply_markup: mainKeyboard(lang)
+  });
+}
+
+/* ---------- /language ---------- */
+
+function languageKeyboard() {
+  return {
+    inline_keyboard: [[
+      { text: '🇺🇿 O‘zbekcha', callback_data: 'lang:uz' },
+      { text: '🇰🇿 Қазақша', callback_data: 'lang:kk' },
+      { text: '🇷🇺 Русский', callback_data: 'lang:ru' }
+    ], [
+      { text: 'Қарақалпақша', callback_data: 'lang:kaa' }
+    ]]
+  };
+}
+
+async function handleLangCallback(query) {
+  const match = String(query.data || '').match(/^lang:(uz|kk|ru|kaa)$/);
+
+  if (!match) return false;
+
+  const lang = match[1];
+  const chat = query.message && query.message.chat;
+
+  if (!chat) {
+    await answerCallback(query.id, '');
+    return true;
+  }
+
+  // Топта тілді тек топ админдері өзгерте алады
+  if (chat.type !== 'private') {
+    let allowed = false;
+
+    try {
+      const member = await telegramApi('getChatMember', {
+        chat_id: chat.id,
+        user_id: query.from.id
+      });
+
+      allowed = ['creator', 'administrator'].includes(
+        member.result && member.result.status
+      );
+    } catch (error) {
+      console.error('getChatMember қатесі:', error.message);
+    }
+
+    if (!allowed) {
+      await answerCallback(
+        query.id,
+        tx(getLang(chat.id), 'langAdminOnly'),
+        true
+      );
+
+      return true;
+    }
+  }
+
+  setLang(chat.id, lang);
+
+  await answerCallback(query.id, tx(lang, 'langSaved'));
+
+  try {
+    await telegramApi('editMessageText', {
+      chat_id: chat.id,
+      message_id: query.message.message_id,
+      text: tx(lang, 'langSaved')
+    });
+  } catch (error) {
+    if (!String(error.message).includes('message is not modified')) {
+      console.error(error.message);
+    }
+  }
+
+  // Жеке чатта: жаңа тілдегі мәтін және жаңартылған төменгі батырмалар
+  if (chat.type === 'private') {
+    try {
+      await sendMainMenu(chat.id, lang);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
+  return true;
+}
+
+/* ---------- Топқа қосылғандағы хабарлама ---------- */
+
+async function sendGroupWelcome(chatId) {
+  if (isGroupBlocked(chatId)) return;
+
+  const text = tx(getLang(chatId), 'groupWelcome');
+
+  await telegramApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML'
+  });
+}
+
+/* ---------- Реферал: /start ref_ID ---------- */
+
+const REF_TEXTS = {
+  kk: (name, n) => `🎉 ${name} сілтемең арқылы қосылды! +${n} койн`,
+  uz: (name, n) => `🎉 ${name} havolang orqali qo‘shildi! +${n} koin`,
+  ru: (name, n) => `🎉 ${name} присоединился по твоей ссылке! +${n} коинов`,
+  kaa: (name, n) => `🎉 ${name} сизиң силтемеңиз арқалы қосылды! +${n} койн`
+};
+
+async function handleStartReferral(message) {
+  const m = /^\/start(?:@\w+)?\s+ref_([0-9a-zA-Z_]{1,30})\s*$/.exec(message.text || '');
+
+  if (!m || !message.from || message.from.is_bot) return;
+
+  const inviterId = m[1];
+  const inviteeId = String(message.from.id);
+
+  const inviteeName =
+    [message.from.first_name, message.from.last_name].filter(Boolean).join(' ') ||
+    message.from.username ||
+    'Ойыншы';
+
+  // trackUser бұрын шақырылды: firstSeen-де осы адам жаңа болса ғана койн беріледі
+  const r = shop.claimReferral(inviteeId, inviteeName, inviterId, firstSeen);
+
+  if (!r.ok) return;
+
+  // Шақырушы мини аппта отырса, бірден көрсетеміз
+  send(users.get(inviterId), shopMsg(inviterId, {
+    type: 'ref',
+    ok: true,
+    name: inviteeName,
+    reward: r.reward
+  }));
+
+  // Боттан хабарлама
+  try {
+    const lang = getLang(inviterId);
+    const text = (REF_TEXTS[lang] || REF_TEXTS.kk)(escapeHtml(inviteeName), r.reward);
+
+    await telegramApi('sendMessage', {
+      chat_id: inviterId,
+      text,
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error('Реферал хабары жіберілмеді:', error.message);
+  }
+}
+
+/* ---------- Telegram webhook ---------- */
+
+async function handleTelegramWebhook(req, res) {
+  if (
+    req.headers['x-telegram-bot-api-secret-token'] !==
+    WEBHOOK_SECRET
+  ) {
+    res.writeHead(403);
+    return res.end('Forbidden');
+  }
+
+  try {
+    let body = '';
+
+    for await (const chunk of req) {
+      body += chunk;
+
+      if (body.length > 1024 * 1024) {
+        res.writeHead(413);
+        return res.end('Too large');
+      }
+    }
+
+    const update = JSON.parse(body);
+
+    /* Telegram Stars төлемі */
+
+    if (update.pre_checkout_query) {
+      await handlePreCheckout(update.pre_checkout_query);
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    if (update.message && update.message.successful_payment) {
+      handleSuccessfulPayment(update.message);
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Callback */
+
+    if (update.callback_query) {
+      if (await handleLangCallback(update.callback_query)) {
+        res.writeHead(200);
+        return res.end('ok');
+      }
+
+      if (
+        await handleAdminCallback(
+          update.callback_query
+        )
+      ) {
+        res.writeHead(200);
+        return res.end('ok');
+      }
+
+      await handleGroupCallback(
+        update.callback_query
+      );
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Боттың топқа қосылуы немесе шығарылуы */
+
+    if (update.my_chat_member) {
+      const memberUpdate = update.my_chat_member;
+      const chat = memberUpdate.chat;
+      const newMember = memberUpdate.new_chat_member;
+      const status = newMember.status;
+
+      if (
+        ['group', 'supergroup'].includes(chat.type)
+      ) {
+        if (
+          status === 'left' ||
+          status === 'kicked' ||
+          (
+            status === 'restricted' &&
+            !newMember.is_member
+          )
+        ) {
+          removeGroup(chat.id);
+        } else if (
+          status === 'member' ||
+          status === 'administrator' ||
+          (
+            status === 'restricted' &&
+            newMember.is_member
+          )
+        ) {
+          await registerGroup(chat);
+        }
+      }
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    const message = update.message;
+
+    if (!message) {
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Ботқа жазған адамды хабар тарату тізіміне қосу */
+
+    if (
+      message.chat &&
+      message.chat.type === 'private' &&
+      message.from &&
+      !message.from.is_bot
+    ) {
+      trackUser(message.from.id);
+
+      touchProfile(message.from.id, {
+        name:
+          [message.from.first_name, message.from.last_name]
+            .filter(Boolean).join(' ') ||
+          message.from.username || '',
+        username: message.from.username || '',
+        seen: Date.now()
+      });
+
+      if (unreachableUsers.delete(String(message.from.id))) {
+        saveUnreachable();
+      }
+    }
+
+    /* Админ командасы */
+
+    if (
+      message.chat.type === 'private' &&
+      /^\/admin(?:@\w+)?(?:\s|$)/.test(
+        message.text || ''
+      )
+    ) {
+      if (isAdmin(message.from.id)) {
+        adminBroadcastDrafts.delete(
+          String(message.from.id)
+        );
+
+        adminActions.delete(
+          String(message.from.id)
+        );
+
+        await openAdmin(message.chat.id);
+      } else {
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          text:
+            '⛔ Сізде админ панельге кіруге рұқсат жоқ.'
+        });
+      }
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Пайдаланушыларға тарататын хабарды қабылдау: мәтін, сілтеме, фото */
+
+    if (
+      message.chat.type === 'private' &&
+      message.from &&
+      isAdmin(message.from.id) &&
+      !/^\/[a-z_]+(?:@\w+)?(?:\s|$)/i.test(message.text || '')
+    ) {
+      const adminId = String(message.from.id);
+      const draft = adminBroadcastDrafts.get(adminId);
+
+      if (
+        draft &&
+        draft.waiting &&
+        draft.target === 'users' &&
+        hasPermission(adminId, 'broadcast')
+      ) {
+        adminBroadcastDrafts.set(adminId, {
+          waiting: false,
+          target: 'users',
+          source: {
+            chatId: message.chat.id,
+            messageId: message.message_id
+          }
+        });
+
+        // Админге қалай көрінетінін алдын ала көрсетеміз
+        try {
+          await telegramApi('copyMessage', {
+            chat_id: message.chat.id,
+            from_chat_id: message.chat.id,
+            message_id: message.message_id
+          });
+        } catch (error) {
+          console.error(error.message);
+        }
+
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          text:
+            '📨 <b>ХАБАРДЫ ТЕКСЕРІҢІЗ</b>\n\n' +
+            'Жоғарыдағы хабарлама ' +
+            `<b>${reachableUserIds().length}</b> пайдаланушыға жіберіледі.\n\n` +
+            '⚠️ Жіберуді растайсыз ба?',
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{
+                text: '✅ БАРЛЫҒЫНА ЖІБЕРУ',
+                callback_data: 'adm:ubc:confirm'
+              }],
+              [{
+                text: '❌ БОЛДЫРМАУ',
+                callback_data: 'adm:ubc:cancel'
+              }]
+            ]
+          }
+        });
+
+        res.writeHead(200);
+        return res.end('ok');
+      }
+    }
+
+    /* Админнің ID енгізуі және хабарлама жіберуі */
+
+    if (
+      message.chat.type === 'private' &&
+      message.from &&
+      isAdmin(message.from.id) &&
+      typeof message.text === 'string'
+    ) {
+      const adminId = String(message.from.id);
+      const input = message.text.trim();
+
+      if (/^\/cancel(?:@\w+)?$/i.test(input)) {
+        adminActions.delete(adminId);
+        adminBroadcastDrafts.delete(adminId);
+
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          text: '❌ Әрекет тоқтатылды.',
+          reply_markup: adminKeyboard(adminId)
+        });
+
+        res.writeHead(200);
+        return res.end('ok');
+      }
+
+      const action = adminActions.get(adminId);
+
+      if (action) {
+        const needPerm = {
+          add_admin: 'admin_manage',
+          block_group: 'group_manage',
+          unblock_group: 'group_manage',
+          coins_id: 'coins',
+          coins_amount: 'coins',
+          vip_id: 'vip',
+          vip_days: 'vip'
+        }[action.action];
+
+        if (needPerm && !hasPermission(adminId, needPerm)) {
+          adminActions.delete(adminId);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: '⛔ Бұл әрекетке рұқсатыңыз жоқ.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (input.startsWith('/')) {
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: '⚠️ ID нөмірін жіберіңіз немесе /cancel жазыңыз.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (!/^-?\d+$/.test(input)) {
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: '⚠️ ID қате. Тек сан енгізіңіз.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'coins_id') {
+          if (!/^\d+$/.test(input)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ ID қате. Тек оң сан енгізіңіз.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          if (!hasOwn(stats.users, input)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text:
+                '⚠️ Бұл ID бойынша ойыншы табылмады.\n' +
+                'Ол ботқа немесе мини аппқа кіруі керек. Басқа ID жіберіңіз немесе /cancel.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          adminActions.set(adminId, {
+            action: 'coins_amount',
+            target: input
+          });
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text:
+              '🪙 <b>КОЙН САНЫ</b>\n\n' +
+              `🆔 ID: <code>${escapeHtml(input)}</code>\n` +
+              `💰 Қазіргі койн: <b>${shop.get(input).coins}</b>\n\n` +
+              'Қанша койн беру керек? Санды жіберіңіз (мысалы <code>500</code>).\n' +
+              'Азайту үшін минус қойыңыз (мысалы <code>-100</code>).\n\n' +
+              '❌ Болдырмау: /cancel',
+            parse_mode: 'HTML'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'coins_amount') {
+          const amount = Number(input);
+
+          const r = shop.addCoins(action.target, amount);
+
+          if (!r.ok) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ Сан қате (0 болмауы керек, ең көбі 1 000 000 000). Қайта жіберіңіз немесе /cancel.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          adminActions.delete(adminId);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text:
+              '✅ <b>КОЙН БЕРІЛДІ</b>\n\n' +
+              `🆔 ID: <code>${escapeHtml(action.target)}</code>\n` +
+              `➕ Сома: <b>${amount > 0 ? '+' : ''}${Math.trunc(amount)}</b>\n` +
+              `💰 Жаңа баланс: <b>${r.coins}</b>`,
+            parse_mode: 'HTML',
+            reply_markup: adminKeyboard(adminId)
+          });
+
+          // Ойыншы мини аппта болса, балансы бірден жаңарады
+          send(users.get(action.target), shopMsg(action.target));
+
+          // Ойыншыға боттан хабар (тек койн қосқанда)
+          if (amount > 0) {
+            try {
+              const lang = getLang(action.target);
+              const texts = {
+                kk: `🎁 Саған ${Math.trunc(amount)} койн берілді!`,
+                uz: `🎁 Sizga ${Math.trunc(amount)} koin berildi!`,
+                ru: `🎁 Вам начислено ${Math.trunc(amount)} коинов!`,
+                kaa: `🎁 Сизге ${Math.trunc(amount)} койн берилди!`
+              };
+
+              await telegramApi('sendMessage', {
+                chat_id: action.target,
+                text: texts[lang] || texts.kk
+              });
+            } catch (error) {
+              console.error('Койн хабары жіберілмеді:', error.message);
+            }
+          }
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'vip_id') {
+          if (!/^\d+$/.test(input)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ ID қате. Тек оң сан енгізіңіз.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          if (!hasOwn(stats.users, input)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text:
+                '⚠️ Бұл ID бойынша ойыншы табылмады.\n' +
+                'Ол ботқа немесе мини аппқа кіруі керек. Басқа ID жіберіңіз немесе /cancel.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          adminActions.set(adminId, {
+            action: 'vip_days',
+            target: input
+          });
+
+          const cur = shop.get(input);
+          const curLeft = cur.vipUntil > Date.now()
+            ? Math.ceil((cur.vipUntil - Date.now()) / 86400000)
+            : 0;
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text:
+              '👑 <b>VIP МЕРЗІМІ</b>\n\n' +
+              `🆔 ID: <code>${escapeHtml(input)}</code>\n` +
+              (curLeft > 0
+                ? `⏳ Қазір VIP бар, қалды: <b>${curLeft}</b> күн\n\n`
+                : '⏳ Қазір VIP жоқ\n\n') +
+              'Неше күнге VIP беру керек? Санды жіберіңіз (мысалы <code>30</code>).\n' +
+              'VIP бар болса, мерзім қалғанның үстіне қосылады.\n\n' +
+              '❌ Болдырмау: /cancel',
+            parse_mode: 'HTML'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'vip_days') {
+          const days = Number(input);
+
+          const r = shop.addVip(action.target, days);
+
+          if (!r.ok) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ Күн саны қате (1-ден 3650-ге дейін бүтін сан). Қайта жіберіңіз немесе /cancel.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          adminActions.delete(adminId);
+
+          const left = Math.ceil((r.vipUntil - Date.now()) / 86400000);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text:
+              '✅ <b>VIP БЕРІЛДІ</b>\n\n' +
+              `🆔 ID: <code>${escapeHtml(action.target)}</code>\n` +
+              `➕ Қосылды: <b>${Math.trunc(days)}</b> күн\n` +
+              `⏳ Барлық қалған мерзім: <b>${left}</b> күн`,
+            parse_mode: 'HTML',
+            reply_markup: adminKeyboard(adminId)
+          });
+
+          // Ойыншы мини аппта болса, VIP бірден қосылады
+          send(users.get(action.target), shopMsg(action.target, { type: 'vip', ok: true }));
+
+          // Ойыншыға боттан хабар
+          try {
+            const lang = getLang(action.target);
+            const texts = {
+              kk: `🎁 Саған <b>Shashka VIP</b> берілді!\n👑 Қосылған мерзім: <b>${Math.trunc(days)}</b> күн. Барлығы қалды: <b>${left}</b> күн.`,
+              uz: `🎁 Sizga <b>Shashka VIP</b> berildi!\n👑 Qo‘shilgan muddat: <b>${Math.trunc(days)}</b> kun. Jami qoldi: <b>${left}</b> kun.`,
+              ru: `🎁 Вам выдан <b>Shashka VIP</b>!\n👑 Добавлено дней: <b>${Math.trunc(days)}</b>. Всего осталось: <b>${left}</b>.`,
+              kaa: `🎁 Сизге <b>Shashka VIP</b> берилди!\n👑 Қосылған мүддет: <b>${Math.trunc(days)}</b> күн. Жәми қалды: <b>${left}</b> күн.`
+            };
+
+            await telegramApi('sendMessage', {
+              chat_id: action.target,
+              parse_mode: 'HTML',
+              text: texts[lang] || texts.kk
+            });
+          } catch (error) {
+            console.error('VIP хабары жіберілмеді:', error.message);
+          }
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'add_admin') {
+          if (input === OWNER_ID) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: 'Бұл ID негізгі админге тиесілі.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          if (admins.has(input)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: 'Бұл адам админ болып тіркелген.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          admins.set(input, {
+            id: input,
+            permissions: [...DEFAULT_PERMISSIONS]
+          });
+
+          saveAdmins();
+          adminActions.delete(adminId);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text:
+              '✅ <b>АДМИН ҚОСЫЛДЫ</b>\n\n' +
+              `🆔 ID: <code>${escapeHtml(input)}</code>\n\n` +
+              'Бастапқы рұқсаттар:\n' +
+              '📊 Статистика\n' +
+              '👥 Қосылған топтар\n' +
+              '🎮 Белсенді ойындар\n\n' +
+              'Қалған рұқсаттарды админдерді басқару бөлімінен бере аласыз.',
+            parse_mode: 'HTML',
+            reply_markup: adminKeyboard(adminId)
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'block_group') {
+          const ok = blockGroup(input);
+
+          adminActions.delete(adminId);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: ok
+              ? '🚫 <b>ТОП БЛОКТАЛДЫ</b>\n\n' +
+                `🆔 ID: <code>${escapeHtml(input)}</code>\n\n` +
+                'Бұл топта боттың ойын функциялары тоқтатылды.'
+              : '⚠️ Топ ID дұрыс емес.',
+            parse_mode: 'HTML',
+            reply_markup: adminKeyboard(adminId)
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'unblock_group') {
+          const ok = unblockGroup(input);
+
+          adminActions.delete(adminId);
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: ok
+              ? '🔓 <b>ТОП БЛОКТАН ШЫҒАРЫЛДЫ</b>\n\n' +
+                `🆔 ID: <code>${escapeHtml(input)}</code>`
+              : '⚠️ Бұл топ блокталмаған.',
+            parse_mode: 'HTML',
+            reply_markup: adminKeyboard(adminId)
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+      }
+
+      /* Хабарлама тарату мәтіні */
+
+      const draft = adminBroadcastDrafts.get(adminId);
+
+      if (draft && draft.waiting && hasPermission(adminId, 'broadcast')) {
+        if (!input) {
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: '⚠️ Хабарлама бос болмауы керек.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (input.length > 4000) {
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: '⚠️ Хабарлама 4000 белгіден аспауы керек.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        adminBroadcastDrafts.set(adminId, {
+          waiting: false,
+          text: input
+        });
+
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          text:
+            '📢 <b>ХАБАРДЫ ТЕКСЕРІҢІЗ</b>\n\n' +
+            'Қол жетімді барлық топтарға мына мәтін жіберіледі:\n\n' +
+            escapeHtml(input) +
+            '\n\n⚠️ Жіберуді растайсыз ба?',
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{
+                text: '✅ БАРЛЫҚ ТОПҚА ЖІБЕРУ',
+                callback_data: 'adm:broadcast:confirm'
+              }],
+              [{
+                text: '❌ БОЛДЫРМАУ',
+                callback_data: 'adm:broadcast:cancel'
+              }]
+            ]
+          }
+        });
+
+        res.writeHead(200);
+        return res.end('ok');
+      }
+    }
+
+    /* Топқа қосылғандағы сәлемдесу */
+
+    if (
+      ['group', 'supergroup'].includes(
+        message.chat.type
+      ) &&
+      Array.isArray(message.new_chat_members)
+    ) {
+      const botId = BOT_TOKEN.split(':')[0];
+
+      const botWasAdded =
+        message.new_chat_members.some(
+          member =>
+            member.is_bot &&
+            String(member.id) === botId
+        );
+
+      if (botWasAdded) {
+        await registerGroup(message.chat);
+        await sendGroupWelcome(message.chat.id);
+      }
+    }
+
+    if (typeof message.text !== 'string') {
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Топтағы командаларға блок тексеру */
+
+    if (
+      ['group', 'supergroup'].includes(
+        message.chat.type
+      ) &&
+      isGroupBlocked(message.chat.id)
+    ) {
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Топтық ойын ашу */
+
+    if (
+      /^\/game(?:@\w+)?(?:\s|$)/.test(
+        message.text
+      ) &&
+      ['group', 'supergroup'].includes(
+        message.chat.type
+      )
+    ) {
+      await registerGroup(message.chat);
+
+      const creatorId = String(message.from.id);
+
+      if (groupPlayerRooms.has(creatorId)) {
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          reply_to_message_id: message.message_id,
+          text:
+            `${playerLink({
+              id: creatorId,
+              username: message.from.username || '',
+              first_name: message.from.first_name || '',
+              last_name: message.from.last_name || ''
+            })}\n\n` +
+            tx(getLang(message.chat.id), 'alreadyPlaying'),
+          parse_mode: 'HTML'
+        });
+
+        res.writeHead(200);
+        return res.end('ok');
+      }
+
+      const code = crypto.randomBytes(6).toString('hex');
+
+      const creator = {
+        id: creatorId,
+        username: message.from.username || '',
+        first_name: message.from.first_name || '',
+        last_name: message.from.last_name || ''
+      };
+
+      const room = {
+        code,
+        chatId: message.chat.id,
+        commandMessageId: message.message_id,
+        messageId: null,
+        players: [creator],
+        entered: new Set(),
+        connected: new Set(),
+        tokens: new Map(),
+        pendingGame: null,
+        started: false,
+        timer: null,
+        searchTimer: null,
+        waitingTimer: null,
+        waitingDeadline: null,
+        firstConnectedId: null,
+        sharedToken: null,
+        privateSent: 0
+      };
+
+      groupPlayerRooms.set(creatorId, code);
+
+      room.timer = setTimeout(() => {
+        cleanupGroupRoom(code);
+      }, GROUP_TTL);
+
+      if (room.timer.unref) {
+        room.timer.unref();
+      }
+
+      groupRooms.set(code, room);
+
+      const sent = await telegramApi('sendMessage', {
+        chat_id: message.chat.id,
+        text: roomText(room),
+        parse_mode: 'HTML',
+        reply_markup: roomKeyboard(room)
+      });
+
+      room.messageId = sent.result.message_id;
+
+      room.searchTimer = setTimeout(() => {
+        expireGroupSearch(code).catch(
+          error => console.error(error.message)
+        );
+      }, GROUP_SEARCH_MS);
+
+      if (room.searchTimer.unref) {
+        room.searchTimer.unref();
+      }
+    }
+
+    /* /rating: тек топта */
+
+    if (/^\/rating(?:@\w+)?(?:\s|$)/i.test(message.text)) {
+      if (['group', 'supergroup'].includes(message.chat.type)) {
+        await telegramApi('sendMessage', {
+          chat_id: message.chat.id,
+          text: ratingMessage(message.chat.id),
+          parse_mode: 'HTML'
+        });
+      }
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* /me: жеке чатта да, топта да */
+
+    if (/^\/me(?:@\w+)?(?:\s|$)/i.test(message.text) && message.from) {
+      await telegramApi('sendMessage', {
+        chat_id: message.chat.id,
+        text: meMessage(
+          message.chat.id,
+          message.from,
+          ['group', 'supergroup'].includes(message.chat.type)
+        ),
+        parse_mode: 'HTML'
+      });
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* /language: жеке чатта да, топта да */
+
+    if (/^\/language(?:@\w+)?(?:\s|$)/.test(message.text)) {
+      await telegramApi('sendMessage', {
+        chat_id: message.chat.id,
+        text: tx(getLang(message.chat.id), 'chooseLang'),
+        reply_markup: languageKeyboard()
+      });
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Start */
+
+    if (
+      /^\/start(?:@\w+)?(?:\s|$)/.test(
+        message.text
+      ) &&
+      message.chat.type === 'private'
+    ) {
+      // Тіл әлі таңдалмаған болса, Telegram тілін қолданамыз
+      if (!hasLang(message.chat.id)) {
+        setLang(
+          message.chat.id,
+          normLang(detectLang(message.from && message.from.language_code))
+        );
+      }
+
+      await sendMainMenu(
+        message.chat.id,
+        getLang(message.chat.id)
+      );
+
+      await handleStartReferral(message);
+    }
+
+    res.writeHead(200);
+    res.end('ok');
+  } catch (error) {
+    console.error(
+      'Telegram webhook қатесі:',
+      error.message
+    );
+
+    res.writeHead(200);
+    res.end('ok');
+  }
+}
+
+/* ---------- Telegram баптаулары ---------- */
+
+async function setupTelegramWebhook() {
+  if (!BOT_TOKEN || DEV) return;
+
+  try {
+    const commandLocales = [
+      { code: null, lang: 'kk' },
+      { code: 'kk', lang: 'kk' },
+      { code: 'uz', lang: 'uz' },
+      { code: 'ru', lang: 'ru' }
+    ];
+
+    for (const { code, lang } of commandLocales) {
+      const extra = code ? { language_code: code } : {};
+
+      try {
+      await telegramApi('setMyCommands', {
+        commands: [
+          {
+            command: 'game',
+            description: tx(lang, 'cmdGame')
+          },
+          {
+            command: 'rating',
+            description: tx(lang, 'cmdRating')
+          },
+          {
+            command: 'me',
+            description: tx(lang, 'cmdMe')
+          },
+          {
+            command: 'language',
+            description: tx(lang, 'cmdLanguage')
+          }
+        ],
+        scope: {
+          type: 'all_group_chats'
+        },
+        ...extra
+      });
+
+      await telegramApi('setMyCommands', {
+        commands: [
+          {
+            command: 'start',
+            description: tx(lang, 'cmdStart')
+          },
+          {
+            command: 'language',
+            description: tx(lang, 'cmdLanguage')
+          },
+          {
+            command: 'me',
+            description: tx(lang, 'cmdMe')
+          },
+          {
+            command: 'admin',
+            description: tx(lang, 'cmdAdmin')
+          }
+        ],
+        scope: {
+          type: 'all_private_chats'
+        },
+        ...extra
+      });
+      } catch (localeError) {
+        console.error(
+          'Командалар қатесі (' + (code || 'default') + '):',
+          localeError.message
+        );
+      }
+    }
+
+    console.log('Telegram командалары орнатылды');
+
+    const result = await telegramApi('setWebhook', {
+      url: WEBHOOK_URL,
+      secret_token: WEBHOOK_SECRET,
+      allowed_updates: [
+        'message',
+        'callback_query',
+        'my_chat_member',
+        'pre_checkout_query'
+      ]
+    });
+
+    console.log(
+      'Telegram webhook:',
+      result.description
+    );
+  } catch (error) {
+    console.error(
+      'Telegram баптау қатесі:',
+      error.message
+    );
+  }
+}
+
+/* ---------- HTTP ---------- */
+
+/* ---------- Статикалық файлдар (жадта кэштеу + gzip + ETag) ---------- */
+
+const zlib = require('zlib');
+
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg']);
+const IMAGE_EXT = new Set(['.png', '.ico', '.svg']);
+
+let staticFiles = new Map();
+
+function buildStatic() {
+  const map = new Map();
+
+  const walk = (dir, prefix) => {
+    let entries = [];
+
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      const key = prefix + '/' + entry.name;
+
+      if (entry.isDirectory()) {
+        walk(full, key);
+        continue;
+      }
+
+      if (!entry.isFile()) continue;
+
+      let data;
+
+      try {
+        data = fs.readFileSync(full);
+      } catch {
+        continue;
+      }
+
+      const ext = path.extname(entry.name);
+
+      map.set(key, {
+        data,
+        gzip: COMPRESSIBLE.has(ext) && data.length > 1024
+          ? zlib.gzipSync(data, { level: 9 })
+          : null,
+        type: MIME[ext] || 'application/octet-stream',
+        etag: '"' + crypto.createHash('sha1').update(data).digest('base64') + '"',
+        cache: IMAGE_EXT.has(ext) && ext !== '.svg'
+          ? 'public, max-age=3600'
+          : 'no-cache'
+      });
+    }
+  };
+
+  walk(PUBLIC, '');
+  staticFiles = map;
+}
+
+buildStatic();
+
+function serveStatic(req, res, url) {
+  if (DEV) buildStatic();
+
+  const key = url === '/' ? '/index.html' : url;
+  const f = staticFiles.get(key);
+
+  if (!f) {
+    res.writeHead(404);
+    return res.end('Not found');
+  }
+
+  const headers = {
+    'Content-Type': f.type,
+    'Cache-Control': f.cache,
+    ETag: f.etag,
+    Vary: 'Accept-Encoding'
+  };
+
+  if (req.headers['if-none-match'] === f.etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+
+  let body = f.data;
+
+  if (
+    f.gzip &&
+    /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))
+  ) {
+    body = f.gzip;
+    headers['Content-Encoding'] = 'gzip';
+  }
+
+  headers['Content-Length'] = body.length;
+
+  res.writeHead(200, headers);
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+const server = http.createServer((req, res) => {
+  let url;
+
+  try {
+    url = decodeURIComponent(
+      (req.url || '/').split('?')[0]
+    );
+  } catch {
+    // Қате кодталған URL серверді құлатпауы керек
+    res.writeHead(400);
+    return res.end('Bad request');
+  }
+
+  if (
+    req.method === 'POST' &&
+    url === '/telegram-webhook'
+  ) {
+    return handleTelegramWebhook(req, res);
+  }
+
+  if (url === '/health') {
+    res.writeHead(200, {
+      'Content-Type': 'text/plain'
+    });
+
+    return res.end('ok');
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405);
+    return res.end();
+  }
+
+  serveStatic(req, res, url);
+});
+
+/* ---------- WebSocket ---------- */
+
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  maxPayload: 4096,
+  perMessageDeflate: {
+    threshold: 256,
+    zlibDeflateOptions: { level: 6 }
+  }
+});
+
+/* ---------- Ойын функциялары ---------- */
+
+function startGroupWaitingTimer(
+  room,
+  g,
+  firstPlayerId
+) {
+  if (
+    !room ||
+    !g ||
+    room.started ||
+    !g.waitingForOpponent
+  ) {
+    return;
+  }
+
+  if (!room.firstConnectedId) {
+    room.firstConnectedId = String(firstPlayerId);
+  }
+
+  if (!room.waitingDeadline) {
+    room.waitingDeadline =
+      Date.now() + GROUP_WAIT_MS;
+  }
+
+  sendGroupWaiting(room);
+
+  if (room.waitingTimer) return;
+
+  const deadline = room.waitingDeadline;
+
+  const check = () => {
+    if (
+      !groupRooms.has(room.code) ||
+      !games.has(g.id) ||
+      room.started ||
+      !g.waitingForOpponent ||
+      room.waitingDeadline !== deadline
+    ) {
+      return;
+    }
+
+    const remaining = deadline - Date.now();
+
+    if (remaining > 0) {
+      room.waitingTimer = setTimeout(
+        check,
+        remaining
+      );
+
+      if (room.waitingTimer.unref) {
+        room.waitingTimer.unref();
+      }
+
+      return;
+    }
+
+    room.waitingTimer = null;
+
+    if (
+      room.started ||
+      !games.has(g.id) ||
+      !g.waitingForOpponent
+    ) {
+      return;
+    }
+
+    const winnerSide = sideOfUser(
+      g,
+      room.firstConnectedId
+    );
+
+    finish(g, winnerSide, 'opponent_timeout');
+  };
+
+  room.waitingTimer = setTimeout(
+    check,
+    Math.max(0, deadline - Date.now())
+  );
+
+  if (room.waitingTimer.unref) {
+    room.waitingTimer.unref();
+  }
+}
+
+function finish(g, winner, reason) {
+  playersDirty();
+  if (!games.has(g.id)) return;
+
+  games.delete(g.id);
+
+  clearTurnTimer(g);
+
+  Object.values(g.timers).forEach(clearTimeout);
+
+  for (const id of [g.p.w, g.p.b]) {
+    const u = users.get(id);
+
+    if (u) {
+      u.game = null;
+
+      send(u, {
+        t: 'over',
+        result: winner || 'draw',
+        reason,
+        score: g.st.score
+      });
+    }
+  }
+
+  if (g.watchers) {
+    const overMsg = {
+      t: 'over',
+      result: winner || 'draw',
+      reason,
+      score: g.st.score,
+      spectator: true
+    };
+
+    for (const id of g.watchers) {
+      const wu = users.get(id);
+
+      if (wu) {
+        wu.watch = null;
+        send(wu, overMsg);
+      }
+    }
+
+    g.watchers = null;
+  }
+
+  // Кездейсоқ қарсылас: тек толық ойнап жеңсе ұпай беріледі
+  grRecordGame(g, winner, reason);
+
+  if (g.groupInfo) {
+    const room = groupRooms.get(g.groupInfo.code);
+    const chatId = g.groupInfo.chatId;
+
+    const winnerId = winner === 'w'
+      ? g.p.w
+      : winner === 'b'
+        ? g.p.b
+        : null;
+
+    const winnerUser = winnerId
+      ? users.get(winnerId)
+      : null;
+
+    const lang = getLang(chatId);
+
+    let resultText;
+
+    if (winnerUser) {
+      resultText =
+        `${tx(lang, 'winner')} ${playerLink({
+          id: winnerId,
+          username: winnerUser.username || '',
+          first_name: winnerUser.username
+            ? ''
+            : winnerUser.name
+        })}`;
+
+      if (reason === 'timeout') {
+        resultText += '\n' + tx(lang, 'rTimeout');
+      } else if (reason === 'opponent_timeout') {
+        resultText += '\n' + tx(lang, 'rOppTimeout');
+      } else if (reason === 'resign') {
+        resultText += '\n' + tx(lang, 'rResign');
+      } else if (reason === 'left') {
+        resultText += '\n' + tx(lang, 'rLeft');
+      }
+    } else {
+      resultText = tx(lang, 'drawText');
+    }
+
+    // Очколар: жеңіс +10, жеңіліс 0 (ойын басталмаса есептелмейді)
+    if (reason !== 'opponent_timeout') {
+      const ids = [String(g.p.w), String(g.p.b)];
+
+      const recorded = recordGroupGame(
+        chatId,
+        ids,
+        winnerId ? String(winnerId) : null
+      );
+
+      if (winnerId) {
+        const loserId = ids.find(id => id !== String(winnerId));
+        const winnerName = escapeHtml(ratingName(winnerId));
+
+        resultText +=
+          '\n\n' +
+          tx(lang, 'resultPoints', {
+            name: winnerName,
+            points: WIN_POINTS
+          }) +
+          '\n' +
+          tx(lang, 'resultZero', {
+            name: escapeHtml(ratingName(loserId))
+          });
+
+        const win = recorded[String(winnerId)];
+        const oldRank = rankIndex(win.before);
+        const newRank = rankIndex(win.after);
+
+        if (newRank > oldRank) {
+          resultText +=
+            '\n\n' +
+            tx(lang, 'rankUp', {
+              name: winnerName,
+              rank: rankLabel(lang, newRank)
+            });
+        }
+      }
+    }
+
+    const oldMessageIds = room
+      ? [...new Set([
+          room.commandMessageId,
+          room.messageId
+        ].filter(Boolean))]
+      : [];
+
+    cleanupGroupRoom(g.groupInfo.code);
+
+    (async () => {
+      for (const messageId of oldMessageIds) {
+        try {
+          await telegramApi('deleteMessage', {
+            chat_id: chatId,
+            message_id: messageId
+          });
+        } catch (error) {
+          console.error(error.message);
+        }
+      }
+
+      // Блокталған топқа хабар жібермеу
+      if (isGroupBlocked(chatId)) return;
+
+      try {
+        await telegramApi('sendMessage', {
+          chat_id: chatId,
+          text:
+            tx(getLang(chatId), 'gameOver') + '\n\n' +
+            resultText,
+          parse_mode: 'HTML'
+        });
+      } catch (error) {
+        console.error(error.message);
+      }
+    })();
+  }
+}
+
+function startGroupMatch(room, g) {
+  if (
+    !room ||
+    !g ||
+    room.started ||
+    !games.has(g.id) ||
+    isGroupBlocked(room.chatId)
+  ) {
+    return;
+  }
+
+  const first = users.get(
+    String(room.players[0].id)
+  );
+
+  const second = users.get(
+    String(room.players[1].id)
+  );
+
+  const bothConnected =
+    first &&
+    second &&
+    first.ws &&
+    first.ws.readyState === 1 &&
+    second.ws &&
+    second.ws.readyState === 1 &&
+    room.connected.has(String(first.id)) &&
+    room.connected.has(String(second.id));
+
+  if (!bothConnected) return;
+
+  room.started = true;
+
+  incrementGroupGameCount(room.chatId);
+
+  stats.totalGames++;
+  stats.totalGroupGames++;
+  saveStats();
+
+  g.waitingForOpponent = false;
+
+  clearGroupWaitingTimer(room);
+  clearTimeout(room.timer);
+  clearTimeout(room.searchTimer);
+
+  startTurnTimer(g);
+
+  send(first, gameState(g, first.id));
+  send(second, gameState(g, second.id));
+
+  send(first, {
+    t: 'group_started'
+  });
+
+  send(second, {
+    t: 'group_started'
+  });
+
+  replaceGroupRoomMessage(room).catch(
+    error => console.error(error.message)
+  );
+}
+
+function joinGroupGame(u, token) {
+  if (
+    typeof token !== 'string' ||
+    !/^[a-f0-9]{32}$/.test(token)
+  ) {
+    return send(u, {
+      t: 'group_error',
+      code: 'invalid'
+    });
+  }
+
+  const tokenInfo = groupTokens.get(token);
+
+  if (!tokenInfo) {
+    return send(u, {
+      t: 'group_error',
+      code: 'invalid'
+    });
+  }
+
+  const room = groupRooms.get(tokenInfo.code);
+
+  if (tokenInfo.shared) {
+    // Ортақ токен: тек осы бөлменің 2 ойыншысы кіре алады
+    const isPlayer = room && room.players.some(
+      player => String(player.id) === String(u.id)
+    );
+
+    if (room && !isPlayer) {
+      return send(u, {
+        t: 'group_error',
+        code: 'full'
+      });
+    }
+  } else if (tokenInfo.userId !== String(u.id)) {
+    return send(u, {
+      t: 'group_error',
+      code: 'invalid'
+    });
+  }
+
+  if (!room) {
+    return send(u, {
+      t: 'group_error',
+      code: 'expired'
+    });
+  }
+
+  if (isGroupBlocked(room.chatId)) {
+    cleanupGroupRoom(room.code);
+
+    return send(u, {
+      t: 'group_error',
+      code: 'blocked'
+    });
+  }
+
+  // Топтағы ойын: мини апп топтың тілінде ашылады
+  send(u, {
+    t: 'lang',
+    lang: getLang(room.chatId)
+  });
+
+  if (room.started) {
+    const existingGame = room.pendingGame;
+
+    if (
+      existingGame &&
+      games.has(existingGame.id) &&
+      (
+        existingGame.p.w === u.id ||
+        existingGame.p.b === u.id
+      )
+    ) {
+      send(u, gameState(existingGame, u.id));
+      sendTurnTimer(existingGame);
+
+      return;
+    }
+
+    return send(u, {
+      t: 'group_error',
+      code: 'expired'
+    });
+  }
+
+  if (room.players.length !== 2) {
+    return send(u, {
+      t: 'group_error',
+      code: 'waiting'
+    });
+  }
+
+  if (u.game && games.has(u.game)) {
+    const existing = games.get(u.game);
+
+    if (
+      !existing.groupInfo ||
+      existing.groupInfo.code !== room.code
+    ) {
+      return send(u, {
+        t: 'group_error',
+        code: 'busy'
+      });
+    }
+  }
+
+  room.connected.add(String(u.id));
+
+  dequeue(u.id);
+  removeUserInvite(u.id);
+
+  let g = room.pendingGame;
+
+  if (!g || !games.has(g.id)) {
+    g = createPendingGroupGame(room);
+  }
+
+  if (!room.firstConnectedId) {
+    room.firstConnectedId = String(u.id);
+  }
+
+  const first = users.get(
+    String(room.players[0].id)
+  );
+
+  const second = users.get(
+    String(room.players[1].id)
+  );
+
+  const bothConnected =
+    first &&
+    second &&
+    first.ws &&
+    first.ws.readyState === 1 &&
+    second.ws &&
+    second.ws.readyState === 1 &&
+    room.connected.has(String(first.id)) &&
+    room.connected.has(String(second.id));
+
+  if (bothConnected) {
+    startGroupMatch(room, g);
+    return;
+  }
+
+  startGroupWaitingTimer(
+    room,
+    g,
+    room.firstConnectedId
+  );
+
+  send(u, gameState(g, u.id));
+  send(u, groupWaitingMessage(room));
+
+  sendGroupWaiting(room);
+}
+
+/* ---------- Шақыру ---------- */
+
+function createInvite(u) {
+  if (u.game && games.has(u.game)) {
+    return send(u, {
+      t: 'error',
+      code: 'busy'
+    });
+  }
+
+  const existing = userInvites.get(u.id);
+
+  if (existing && invites.has(existing)) {
+    return send(u, {
+      t: 'invite_created',
+      code: existing,
+      expiresIn: INVITE_TTL / 1000
+    });
+  }
+
+  removeUserInvite(u.id);
+  dequeue(u.id);
+
+  const code = crypto.randomBytes(6).toString('hex');
+
+  const invite = {
+    ownerId: u.id,
+    timer: null
+  };
+
+  invite.timer = setTimeout(() => {
+    removeInvite(code);
+
+    send(users.get(u.id), {
+      t: 'invite_expired',
+      code
+    });
+  }, INVITE_TTL);
+
+  if (invite.timer.unref) {
+    invite.timer.unref();
+  }
+
+  invites.set(code, invite);
+  userInvites.set(u.id, code);
+
+  send(u, {
+    t: 'invite_created',
+    code,
+    expiresIn: INVITE_TTL / 1000
+  });
+}
+
+function joinInvite(u, code) {
+  if (
+    typeof code !== 'string' ||
+    !/^[a-f0-9]{12}$/.test(code)
+  ) {
+    return send(u, {
+      t: 'error',
+      code: 'invite_invalid'
+    });
+  }
+
+  if (u.game && games.has(u.game)) {
+    return send(u, {
+      t: 'error',
+      code: 'busy'
+    });
+  }
+
+  const invite = invites.get(code);
+
+  if (!invite) {
+    return send(u, {
+      t: 'error',
+      code: 'invite_expired'
+    });
+  }
+
+  if (invite.ownerId === u.id) {
+    return send(u, {
+      t: 'error',
+      code: 'invite_self'
+    });
+  }
+
+  const owner = users.get(invite.ownerId);
+
+  if (!owner) {
+    removeInvite(code);
+
+    return send(u, {
+      t: 'error',
+      code: 'invite_expired'
+    });
+  }
+
+  if (!owner.ws || owner.ws.readyState !== 1) {
+    // Иесі қысқа уақытқа үзілген (мысалы, сілтемені Telegram арқылы жіберіп жатыр).
+    // Сілтемені жоймаймыз: иесі қайта қосылғанда ойын өзі басталады.
+    invite.pending = u.id;
+
+    return send(u, {
+      t: 'invite_waiting'
+    });
+  }
+
+  if (owner.game && games.has(owner.game)) {
+    removeInvite(code);
+
+    return send(u, {
+      t: 'error',
+      code: 'busy'
+    });
+  }
+
+  removeInvite(code);
+  dequeue(u.id);
+
+  send(owner, {
+    t: 'invite_joined'
+  });
+
+  startGame(owner, u);
+}
+
+/* ---------- Telegram Stars төлемдері ---------- */
+
+const PAY_FILE = path.join(DATA_DIR, 'payments.json');
+
+// charges: қайталанған төлемнен қорғау
+const payData = { charges: [] };
+
+function savePay() {
+  storeSave('payments', PAY_FILE, payData);
+}
+
+// Койн пакеттері: [койн, жұлдыз]
+const COIN_PACKS = [
+  { coins: 1000, stars: 15 },
+  { coins: 2000, stars: 25 },
+  { coins: 3000, stars: 35 },
+  { coins: 4000, stars: 45 },
+  { coins: 5000, stars: 55 },
+  { coins: 10000, stars: 100 }
+];
+
+// VIP: 1 ай, Telegram Stars арқылы
+const VIP_STARS = 100;
+const VIP_DAYS = 30;
+
+const VIP_PAID_TEXT = {
+  kk: (d) => `✅ Төлем сәтті өтті!\n👑 <b>Shashka VIP</b> қосылды. Қалған мерзім: <b>${d}</b> күн.`,
+  uz: (d) => `✅ To‘lov muvaffaqiyatli o‘tdi!\n👑 <b>Shashka VIP</b> yoqildi. Qolgan muddat: <b>${d}</b> kun.`,
+  ru: (d) => `✅ Оплата прошла успешно!\n👑 <b>Shashka VIP</b> подключён. Осталось дней: <b>${d}</b>.`,
+  kaa: (d) => `✅ Төлем табыслы өтти!\n👑 <b>Shashka VIP</b> қосылды. Қалған мүддет: <b>${d}</b> күн.`
+};
+
+const COIN_PAID_TEXT = {
+  kk: (n, c) => `✅ Төлем сәтті өтті!\n💰 Балансқа <b>${n}</b> койн қосылды.\nҚазіргі койн: <b>${c}</b>`,
+  uz: (n, c) => `✅ To‘lov muvaffaqiyatli o‘tdi!\n💰 Balansga <b>${n}</b> koin qo‘shildi.\nHozirgi koin: <b>${c}</b>`,
+  ru: (n, c) => `✅ Оплата прошла успешно!\n💰 На баланс зачислено <b>${n}</b> коинов.\nСейчас коинов: <b>${c}</b>`,
+  kaa: (n, c) => `✅ Төлем табыслы өтти!\n💰 Балансқа <b>${n}</b> койн қосылды.\nҲәзирги койн: <b>${c}</b>`
+};
+
+async function createCoinInvoice(u, idx) {
+  const pack = COIN_PACKS[Number(idx)];
+
+  if (!pack) return send(u, { t: 'pay_error' });
+
+  try {
+    const r = await telegramApi('createInvoiceLink', {
+      title: `${pack.coins} койн`,
+      description: `Shashka: ${pack.coins} койн`,
+      payload: `coins:${u.id}:${Number(idx)}`,
+      currency: 'XTR',
+      prices: [{ label: `${pack.coins} койн`, amount: pack.stars }]
+    });
+
+    send(u, { t: 'invoice', url: r.result });
+  } catch (e) {
+    console.error('Койн invoice қатесі:', e.message);
+    send(u, { t: 'pay_error' });
+  }
+}
+
+async function createVipInvoice(u) {
+  try {
+    const r = await telegramApi('createInvoiceLink', {
+      title: 'Shashka VIP',
+      description: `Shashka VIP: ${VIP_DAYS} күн`,
+      payload: `vip:${u.id}`,
+      currency: 'XTR',
+      prices: [{ label: 'Shashka VIP', amount: VIP_STARS }]
+    });
+
+    send(u, { t: 'invoice', url: r.result });
+  } catch (e) {
+    console.error('VIP invoice қатесі:', e.message);
+    send(u, { t: 'pay_error' });
+  }
+}
+
+const PIECE_PAID_TEXT = {
+  kk: '✅ Төлем сәтті өтті!\n🎨 Жаңа тастар ашылды. Ойында қолданылып жатыр.',
+  uz: '✅ To‘lov muvaffaqiyatli o‘tdi!\n🎨 Yangi toshlar ochildi. O‘yinda ishlatilmoqda.',
+  ru: '✅ Оплата прошла успешно!\n🎨 Новые шашки открыты и уже используются в игре.',
+  kaa: '✅ Төлем табыслы өтти!\n🎨 Жаңа таслар ашылды. Ойында қолланылып атыр.'
+};
+
+// Тастар: Telegram Stars арқылы (койнға емес)
+async function createPieceInvoice(u, itemId) {
+  const stars = shop.starPrice('pieces', itemId);
+
+  if (!stars) return send(u, { t: 'pay_error' });
+
+  // VIP-ке немесе бұрын алғанға қайта төлемей-ақ ашық
+  if (shop.owns(u.id, 'pieces', itemId)) {
+    return send(u, shopMsg(u.id, { type: 'buy', ok: false, code: 'owned', id: itemId }));
+  }
+
+  try {
+    const r = await telegramApi('createInvoiceLink', {
+      title: 'Shashka: тастар',
+      description: 'Shashka: ойын тастарының жиынтығы',
+      payload: `piece:${u.id}:${itemId}`,
+      currency: 'XTR',
+      prices: [{ label: 'Shashka тастары', amount: stars }]
+    });
+
+    send(u, { t: 'invoice', url: r.result });
+  } catch (e) {
+    console.error('Тас invoice қатесі:', e.message);
+    send(u, { t: 'pay_error' });
+  }
+}
+
+function parseOrder(payload) {
+  const pc = /^piece:([^:]+):(p\d{1,3})$/.exec(payload || '');
+
+  if (pc) {
+    const stars = shop.starPrice('pieces', pc[2]);
+
+    return stars
+      ? { kind: 'piece', id: pc[1], item: pc[2], amount: stars }
+      : null;
+  }
+
+  const v = /^vip:(.+)$/.exec(payload || '');
+
+  if (v) {
+    return { kind: 'vip', id: v[1], amount: VIP_STARS };
+  }
+
+  const m = /^coins:(.+):(\d+)$/.exec(payload || '');
+
+  if (m && COIN_PACKS[Number(m[2])]) {
+    const pack = COIN_PACKS[Number(m[2])];
+
+    return { kind: 'coins', id: m[1], amount: pack.stars, pack };
+  }
+
+  return null;
+}
+
+async function handlePreCheckout(q) {
+  const o = parseOrder(q.invoice_payload);
+
+  const ok =
+    Boolean(o) &&
+    o.id === String(q.from && q.from.id) &&
+    q.currency === 'XTR' &&
+    q.total_amount === o.amount;
+
+  await telegramApi(
+    'answerPreCheckoutQuery',
+    ok
+      ? { pre_checkout_query_id: q.id, ok: true }
+      : {
+          pre_checkout_query_id: q.id,
+          ok: false,
+          error_message: 'Invalid order'
+        }
+  );
+}
+
+function handleSuccessfulPayment(message) {
+  const p = message.successful_payment;
+  const o = parseOrder(p && p.invoice_payload);
+
+  if (
+    !o ||
+    !message.from ||
+    o.id !== String(message.from.id) ||
+    p.currency !== 'XTR' ||
+    p.total_amount !== o.amount
+  ) {
+    return;
+  }
+
+  const id = String(message.from.id);
+
+  // Койн пакеті: бір төлем бір рет қана есептеледі
+  const chargeId = p.telegram_payment_charge_id;
+
+  if (chargeId) {
+    if (payData.charges.includes(chargeId)) return;
+
+    payData.charges.push(chargeId);
+
+    if (payData.charges.length > 500) payData.charges.shift();
+
+    savePay();
+  }
+
+  if (o.kind === 'vip') {
+    const v = shop.addVip(id, VIP_DAYS);
+
+    if (!v || !v.ok) {
+      console.error('VIP қосылмады:', id);
+      return;
+    }
+
+    send(users.get(id), shopMsg(id, { type: 'vip', ok: true }));
+
+    const left = Math.ceil((v.vipUntil - Date.now()) / 86400000);
+    const fmtVip = VIP_PAID_TEXT[getLang(id)] || VIP_PAID_TEXT.kk;
+
+    telegramApi('sendMessage', {
+      chat_id: id,
+      parse_mode: 'HTML',
+      text: fmtVip(left)
+    }).catch((e) => console.error('VIP хабарлама қатесі:', e.message));
+
+    return;
+  }
+
+  if (o.kind === 'piece') {
+    const g = shop.grant(id, 'pieces', o.item);
+
+    if (!g || !g.ok) {
+      console.error('Тас берілмеді:', id, o.item);
+      return;
+    }
+
+    send(users.get(id), shopMsg(id, { type: 'buy', ok: true, id: o.item }));
+
+    telegramApi('sendMessage', {
+      chat_id: id,
+      parse_mode: 'HTML',
+      text: PIECE_PAID_TEXT[getLang(id)] || PIECE_PAID_TEXT.kk
+    }).catch((e) => console.error('Тас хабарлама қатесі:', e.message));
+
+    return;
+  }
+
+  const r = shop.addCoins(id, o.pack.coins);
+
+  if (!r || !r.ok) {
+    console.error('Койн қосылмады:', id, o.pack.coins);
+    return;
+  }
+
+  send(users.get(id), shopMsg(id, {
+    type: 'coins',
+    ok: true,
+    n: o.pack.coins
+  }));
+
+  // Боттан жеке хабарлама
+  const fmt = COIN_PAID_TEXT[getLang(id)] || COIN_PAID_TEXT.kk;
+
+  telegramApi('sendMessage', {
+    chat_id: id,
+    parse_mode: 'HTML',
+    text: fmt(o.pack.coins, shop.get(id).coins)
+  }).catch((e) => console.error('Койн хабарлама қатесі:', e.message));
+}
+
+/* ---------- Ойыншылар бөлімі: профильдер және ойынға шақыру ---------- */
+
+const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json');
+const PINVITE_TTL = 30 * 1000;
+const PLAYERS_LIMIT = 100;
+
+// id -> { name, username, avatar, seen }
+const profiles = new Map();
+// 'fromId>toId' -> { from, to, timer }
+const pinvites = new Map();
+
+// Шақыруды қабылдамау: 'fromId>toId' -> { count, until, last }
+// 2 рет қабылдамаса, шақырушы 2 минут қайта шақыра алмайды
+const PDECLINE_LIMIT = 2;
+const PDECLINE_COOL = 2 * 60 * 1000;
+const PDECLINE_RESET = 10 * 60 * 1000;
+const pdecl = new Map();
+
+function coolLeft(fromId, toId) {
+  const rec = pdecl.get(String(fromId) + '>' + String(toId));
+
+  if (!rec || rec.until <= Date.now()) return 0;
+
+  return Math.ceil((rec.until - Date.now()) / 1000);
+}
+
+const pdeclTimer = setInterval(() => {
+  const now = Date.now();
+
+  for (const [k, r] of pdecl) {
+    if (r.until < now && now - r.last > PDECLINE_RESET) pdecl.delete(k);
+  }
+}, 10 * 60 * 1000);
+
+if (pdeclTimer.unref) pdeclTimer.unref();
+
+let profilesTimer = null;
+let profilesSavedAt = 0;
+
+// «seen» (соңғы кірген уақыт) жалғыз өзгерсе, көбі 10 минутта бір рет сақталады
+const SEEN_PERSIST_MS = 10 * 60 * 1000;
+
+function saveProfilesNow() {
+  clearTimeout(profilesTimer);
+  profilesTimer = null;
+  profilesSavedAt = Date.now();
+
+  storeSave('profiles', PROFILES_FILE, Object.fromEntries(profiles));
+}
+
+function saveProfilesSoon() {
+  if (profilesTimer) return;
+
+  profilesTimer = setTimeout(saveProfilesNow, 15000);
+
+  if (profilesTimer.unref) profilesTimer.unref();
+}
+
+function touchProfile(id, data) {
+  id = String(id);
+
+  if (id.startsWith('dev')) return;
+
+  const existing = profiles.get(id);
+
+  const p = existing || {
+    name: '',
+    username: '',
+    avatar: null,
+    seen: 0
+  };
+
+  let changed = !existing;
+
+  if (data.name) {
+    const v = String(data.name).slice(0, 40);
+    if (p.name !== v) { p.name = v; changed = true; }
+  }
+
+  if (data.username) {
+    const v = String(data.username);
+    if (p.username !== v) { p.username = v; changed = true; }
+  }
+
+  if (data.avatar) {
+    const v = String(data.avatar);
+    if (p.avatar !== v) { p.avatar = v; changed = true; }
+  }
+
+  if (data.seen) {
+    p.seen = data.seen;
+
+    if (Date.now() - profilesSavedAt > SEEN_PERSIST_MS) changed = true;
+  }
+
+  profiles.set(id, p);
+
+  // Тек шынымен өзгеріс болғанда ғана барлық профильдерді қайта сақтаймыз
+  if (changed) saveProfilesSoon();
+}
+
+const isOnline = u =>
+  Boolean(u && u.ws && u.ws.readyState === 1);
+
+const isBusy = u =>
+  Boolean(u && u.game && games.has(u.game));
+
+// Барлық ойыншылар тізімі бір рет есептеліп, 2 секунд бойы ортақ қолданылады
+// (әр сұраныста 5000 профильді қайта айналып сұрыптамау үшін)
+const PLAYERS_CACHE_MS = 2000;
+let playersBase = null;
+let playersBaseAt = 0;
+
+function playersDirty() {
+  playersBaseAt = 0;
+}
+
+function playersBaseList() {
+  const now = Date.now();
+
+  if (playersBase && now - playersBaseAt < PLAYERS_CACHE_MS) {
+    return playersBase;
+  }
+
+  const list = [];
+  const online = new Set();
+
+  for (const [id, p] of profiles) {
+    const u = users.get(id);
+    const isOn = isOnline(u);
+    const gm = isOn && u.game ? games.get(u.game) : null;
+
+    if (isOn) online.add(id);
+
+    list.push({
+      id,
+      name: p.name || p.username || ('Ойыншы ' + String(id).slice(-4)),
+      username: p.username || '',
+      avatar: p.avatar || null,
+      status: isOn ? (isBusy(u) ? 'game' : 'online') : 'offline',
+      watch: Boolean(gm && !gm.waitingForOpponent && !gm.st.over),
+      vip: isVipId(id),
+      dnd: shop.isDnd(id),
+      cool: 0,
+      seen: isOn ? now : (p.seen || 0),
+      sent: false
+    });
+  }
+
+  const order = { online: 0, game: 1, offline: 2 };
+
+  list.sort((a, b) =>
+    (order[a.status] - order[b.status]) ||
+    (b.seen - a.seen)
+  );
+
+  playersBase = { list, online };
+  playersBaseAt = now;
+
+  return playersBase;
+}
+
+function playersPayload(viewerId) {
+  const me = String(viewerId);
+  const base = playersBaseList();
+
+  // Осы ойыншы жіберген шақырулар
+  let sentTo = null;
+
+  if (pinvites.size) {
+    sentTo = new Set();
+
+    for (const key of pinvites.keys()) {
+      if (key.startsWith(me + '>')) sentTo.add(key.slice(me.length + 1));
+    }
+  }
+
+  const useCool = pdecl.size > 0;
+  const list = [];
+  let onlineCount = 0;
+
+  for (const e of base.list) {
+    if (e.id === me) continue;
+
+    if (e.status !== 'offline') onlineCount++;
+
+    if (list.length >= PLAYERS_LIMIT) continue;
+
+    const cool = useCool ? coolLeft(me, e.id) : 0;
+    const sent = Boolean(sentTo && sentTo.has(e.id));
+
+    list.push(cool || sent ? Object.assign({}, e, { cool, sent }) : e);
+  }
+
+  return {
+    t: 'players',
+    list,
+    total: base.list.length - (profiles.has(me) ? 1 : 0),
+    onlineCount,
+    ttl: PINVITE_TTL / 1000
+  };
+}
+
+// notify: 'to' | 'from' | 'both' | 'none'
+function endPInvite(key, reason, notify, extra) {
+  const inv = pinvites.get(key);
+
+  if (!inv) return;
+
+  clearTimeout(inv.timer);
+  pinvites.delete(key);
+
+  if (notify === 'to' || notify === 'both') {
+    send(users.get(inv.to), {
+      t: 'pinvite_end',
+      from: inv.from,
+      reason
+    });
+  }
+
+  if (notify === 'from' || notify === 'both') {
+    send(users.get(inv.from), {
+      t: 'pinvite_end',
+      to: inv.to,
+      reason,
+      ...(extra || {})
+    });
+  }
+}
+
+function clearPInvitesOf(id) {
+  id = String(id);
+
+  for (const [key, inv] of pinvites) {
+    if (inv.from === id || inv.to === id) {
+      endPInvite(key, 'unavailable', 'both');
+    }
+  }
+}
+
+function sendPInvite(u, toId) {
+  toId = String(toId || '');
+
+  const target = users.get(toId);
+
+  if (!toId || toId === u.id) {
+    return send(u, { t: 'error', code: 'pinvite_invalid' });
+  }
+
+  if (isBusy(u)) {
+    return send(u, { t: 'error', code: 'busy' });
+  }
+
+  if (!isOnline(target)) {
+    return send(u, { t: 'error', code: 'pinvite_offline' });
+  }
+
+  if (isBusy(target)) {
+    return send(u, { t: 'error', code: 'pinvite_busy' });
+  }
+
+  // Қабылдаушыда «Мазаламаңыз» режимі қосулы
+  if (shop.isDnd(toId)) {
+    return send(u, { t: 'error', code: 'pinvite_dnd', to: toId });
+  }
+
+  // 2 рет қабылдамаған соң 2 минут кідіріс
+  const cl = coolLeft(u.id, toId);
+
+  if (cl > 0) {
+    return send(u, { t: 'error', code: 'pinvite_cool', to: toId, left: cl });
+  }
+
+  const key = u.id + '>' + toId;
+
+  if (pinvites.has(key)) {
+    return send(u, { t: 'pinvite_sent', to: toId });
+  }
+
+  // Бір уақытта тек бір шығыс заявка
+  for (const [k, inv] of pinvites) {
+    if (inv.from === u.id) endPInvite(k, 'cancelled', 'to');
+  }
+
+  if (queue.includes(u.id)) {
+    dequeue(u.id);
+    send(u, { t: 'idle' });
+  }
+
+  const inv = { from: u.id, to: toId, timer: null };
+
+  inv.timer = setTimeout(
+    () => endPInvite(key, 'expired', 'both'),
+    PINVITE_TTL
+  );
+
+  if (inv.timer.unref) inv.timer.unref();
+
+  pinvites.set(key, inv);
+
+  send(u, { t: 'pinvite_sent', to: toId });
+
+  send(target, {
+    t: 'pinvite_in',
+    from: {
+      id: u.id,
+      name: u.name,
+      username: u.username || '',
+      avatar: u.avatar || null
+    },
+    ttl: PINVITE_TTL / 1000
+  });
+}
+
+function cancelPInvite(u, toId) {
+  toId = String(toId || '');
+
+  endPInvite(u.id + '>' + toId, 'cancelled', 'to');
+
+  send(u, { t: 'pinvite_end', to: toId, reason: 'cancelled' });
+}
+
+function answerPInvite(u, fromId, accept) {
+  fromId = String(fromId || '');
+
+  const key = fromId + '>' + u.id;
+  const inv = pinvites.get(key);
+
+  if (!inv) {
+    return send(u, {
+      t: 'pinvite_end',
+      from: fromId,
+      reason: 'expired'
+    });
+  }
+
+  if (!accept) {
+    const now = Date.now();
+    const rec = pdecl.get(key) || { count: 0, until: 0, last: 0 };
+
+    if (now - rec.last > PDECLINE_RESET) rec.count = 0;
+
+    rec.count++;
+    rec.last = now;
+
+    let cool = 0;
+
+    if (rec.count >= PDECLINE_LIMIT) {
+      rec.count = 0;
+      rec.until = now + PDECLINE_COOL;
+      cool = PDECLINE_COOL / 1000;
+    }
+
+    pdecl.set(key, rec);
+
+    return endPInvite(key, 'declined', 'from', cool ? { cool } : undefined);
+  }
+
+  const from = users.get(inv.from);
+
+  if (!isOnline(from) || isBusy(from) || isBusy(u)) {
+    endPInvite(key, 'unavailable', 'both');
+
+    return send(u, { t: 'error', code: 'pinvite_busy' });
+  }
+
+  endPInvite(key, 'started', 'none');
+
+  clearPInvitesOf(u.id);
+  clearPInvitesOf(from.id);
+
+  startGame(from, u);
+}
+
+/* ---------- WebSocket хабарламалары ---------- */
+
+function handle(u, m) {
+  switch (m.t) {
+    case 'ping':
+      return send(u, { t: 'pong' });
+
+    case 'group_join':
+      return joinGroupGame(
+        u,
+        m.token || m.code
+      );
+
+    case 'find': {
+      if (u.game && games.has(u.game)) {
+        return send(
+          u,
+          gameState(games.get(u.game), u.id)
+        );
+      }
+
+      if (queue.includes(u.id)) {
+        return send(u, {
+          t: 'searching'
+        });
+      }
+
+      // Тек шын тірі (ws ашық) және бос ойыншыларды қалдырамыз
+      const alive = id => {
+        const user = users.get(id);
+
+        return Boolean(
+          user &&
+          id !== u.id &&
+          user.ws &&
+          user.ws.readyState === 1 &&
+          !(user.game && games.has(user.game))
+        );
+      };
+
+      queue = queue.filter(alive);
+
+      // Кезектегі бірінші жарамды қарсыласпен бірден ойын бастаймыз
+      while (queue.length) {
+        const oppId = queue.shift();
+
+        if (!alive(oppId)) continue;
+
+        const opp = users.get(oppId);
+        const randomGame = startGame(opp, u, null, true);
+
+        if (randomGame) randomGame.random = true;
+
+        return randomGame;
+      }
+
+      queue.push(u.id);
+
+      return send(u, {
+        t: 'searching'
+      });
+    }
+
+    case 'cancel':
+      dequeue(u.id);
+
+      return send(u, {
+        t: 'idle'
+      });
+
+    case 'invite_create':
+      return createInvite(u);
+
+    case 'invite_join':
+      return joinInvite(u, m.code);
+
+    case 'invite_cancel':
+      removeUserInvite(u.id);
+
+      return send(u, {
+        t: 'invite_cancelled'
+      });
+
+    case 'dnd_set': {
+      const on = Boolean(m.on);
+
+      shop.setDnd(u.id, on);
+
+      // Қосылғанда саған келген шақырулар жабылады
+      if (on) {
+        for (const [k, inv] of pinvites) {
+          if (inv.to === u.id) endPInvite(k, 'unavailable', 'both');
+        }
+      }
+
+      return send(u, shopMsg(u.id, { type: 'dnd', on }));
+    }
+
+    case 'players_get':
+      return send(u, playersPayload(u.id));
+
+    case 'watch_start':
+      return watchStart(u, m.player);
+
+    case 'watch_stop':
+      return unwatch(u);
+
+    case 'pinvite_send':
+      return sendPInvite(u, m.to);
+
+    case 'pinvite_cancel':
+      return cancelPInvite(u, m.to);
+
+    case 'pinvite_answer':
+      return answerPInvite(u, m.from, Boolean(m.accept));
+
+    case 'rating_get':
+      return send(u, grPayload(u.id));
+
+    case 'rank_get':
+      return send(u, rkPayload(u.id));
+
+    case 'shop_get':
+      return send(u, shopMsg(u.id));
+
+    case 'shop_buy': {
+      const r = shop.buy(u.id, String(m.kind), String(m.id));
+
+      return send(u, shopMsg(u.id, {
+        type: 'buy',
+        ok: r.ok,
+        code: r.code || null,
+        id: String(m.id)
+      }));
+    }
+
+    case 'coin_buy':
+      return createCoinInvoice(u, m.pack);
+
+    case 'vip_buy':
+      return createVipInvoice(u);
+
+    case 'piece_buy':
+      return createPieceInvoice(u, String(m.id));
+
+    case 'shop_use': {
+      const r = shop.use(u.id, String(m.kind), String(m.id));
+
+      return send(u, shopMsg(u.id, {
+        type: 'use',
+        ok: r.ok,
+        code: r.code || null,
+        id: String(m.id)
+      }));
+    }
+
+    case 'ref_claim': {
+      const inviterId = String(m.code || '')
+        .replace(/[^0-9a-zA-Z_]/g, '')
+        .slice(0, 30);
+
+      if (!inviterId) return;
+
+      const r = shop.claimReferral(
+        u.id,
+        u.name,
+        inviterId,
+        firstSeen
+      );
+
+      if (!r.ok) return;
+
+      send(u, shopMsg(u.id));
+
+      return send(users.get(inviterId), shopMsg(inviterId, {
+        type: 'ref',
+        ok: true,
+        name: u.name,
+        reward: r.reward
+      }));
+    }
+
+    case 'move': {
+      const g = games.get(u.game);
+
+      if (
+        !g ||
+        g.waitingForOpponent ||
+        !Number.isInteger(m.from) ||
+        !Number.isInteger(m.to)
+      ) {
+        return;
+      }
+
+      const side = sideOfUser(g, u.id);
+
+      if (g.st.turn !== side) {
+        return send(u, gameState(g, u.id));
+      }
+
+      if (
+        g.turnTimerSide === side &&
+        g.turnDeadline &&
+        Date.now() >= g.turnDeadline
+      ) {
+        return finish(
+          g,
+          G.other(side),
+          'timeout'
+        );
+      }
+
+      const step = G.applyMove(
+        g.st,
+        m.from,
+        m.to
+      );
+
+      if (!step) {
+        return send(u, gameState(g, u.id));
+      }
+
+      const base = {
+        t: 'move',
+        step,
+        turn: g.st.turn,
+        score: g.st.score,
+        board: G.view(g.st),
+        chainPos: g.st.chain
+          ? g.st.chain.pos
+          : null
+      };
+
+      for (const id of [g.p.w, g.p.b]) {
+        send(users.get(id), {
+          ...base,
+          legal: legalList(
+            g,
+            sideOfUser(g, id)
+          )
+        });
+      }
+
+      sendWatchers(g, { ...base, legal: [] });
+
+      if (g.st.over) {
+        finish(
+          g,
+          g.st.over.winner,
+          g.st.over.reason
+        );
+
+        return;
+      }
+
+      if (g.st.turn !== g.turnTimerSide) {
+        startTurnTimer(g);
+      } else {
+        sendTurnTimer(g);
+      }
+
+      return;
+    }
+
+    case 'resign': {
+      const g = games.get(u.game);
+
+      if (g && !g.waitingForOpponent) {
+        finish(
+          g,
+          G.other(sideOfUser(g, u.id)),
+          'resign'
+        );
+      }
+
+      return;
+    }
+
+    case 'rtc': {
+      // Дауыстық байланыс: WebRTC сигналын қарсыласқа жібереміз
+      const g = games.get(u.game);
+
+      if (!g || g.waitingForOpponent || !m.d || typeof m.d !== 'object') {
+        return;
+      }
+
+      if (JSON.stringify(m.d).length > 8000) return;
+
+      const oppId = g.p.w === u.id ? g.p.b : g.p.w;
+
+      send(users.get(oppId), { t: 'rtc', d: m.d });
+
+      return;
+    }
+
+    case 'chat': {
+      const g = games.get(u.game);
+
+      if (
+        !g ||
+        g.waitingForOpponent ||
+        typeof m.text !== 'string'
+      ) {
+        return;
+      }
+
+      const text = m.text.trim().slice(0, 300);
+      const now = Date.now();
+
+      if (
+        !text ||
+        now - (g.lastChat[u.id] || 0) < 400
+      ) {
+        return;
+      }
+
+      g.lastChat[u.id] = now;
+
+      const msg = {
+        t: 'chat',
+        from: sideOfUser(g, u.id),
+        name: u.name,
+        text,
+        ts: now
+      };
+
+      g.chat.push(msg);
+
+      if (g.chat.length > 100) {
+        g.chat.shift();
+      }
+
+      broadcastChat(g, msg);
+
+      return;
+    }
+
+    case 'watch_chat': {
+      const g = u.watch ? games.get(u.watch) : null;
+
+      if (!g || !isVipId(u.id) || adminInGame(g) || typeof m.text !== 'string') return;
+
+      const text = m.text.trim().slice(0, 300);
+      const now = Date.now();
+
+      if (!text || now - (g.lastChat[u.id] || 0) < 400) return;
+
+      g.lastChat[u.id] = now;
+
+      const msg = {
+        t: 'chat',
+        from: 's',
+        uid: u.id,
+        name: u.name,
+        vip: true,
+        text,
+        ts: now
+      };
+
+      g.chat.push(msg);
+
+      if (g.chat.length > 100) g.chat.shift();
+
+      broadcastChat(g, msg);
+
+      return;
+    }
+  }
+}
+
+/* ---------- Авторизация ---------- */
+
+function onAuth(ws, m) {
+  let info = null;
+
+  if (DEV && m.dev && m.dev.id) {
+    info = {
+      id: 'dev' + String(m.dev.id).slice(0, 20),
+      name: String(
+        m.dev.name || 'Dev'
+      ).slice(0, 40),
+      avatar: null
+    };
+  } else {
+    info = verifyInitData(
+      m.initData,
+      BOT_TOKEN
+    );
+
+    if (info) info.tgLang = tgLangFromInitData(m.initData);
+
+    // initData расталған, сондықтан username мен суретті сеніммен аламыз
+    if (info) {
+      try {
+        const rawUser = new URLSearchParams(
+          String(m.initData || '')
+        ).get('user');
+
+        const tgUser = rawUser ? JSON.parse(rawUser) : null;
+
+        if (tgUser) {
+          info.username = tgUser.username
+            ? String(tgUser.username)
+            : '';
+
+          if (!info.avatar && tgUser.photo_url) {
+            info.avatar = String(tgUser.photo_url);
+          }
+        }
+      } catch (error) {
+        // username болмаса да ойын жұмыс істей береді
+      }
+    }
+  }
+
+  if (!info) {
+    ws.send(JSON.stringify({
+      t: 'error',
+      code: 'auth'
+    }));
+
+    return ws.close();
+  }
+
+  info.id = String(info.id);
+
+  trackUser(info.id);
+
+  touchProfile(info.id, {
+    name: info.name,
+    username: info.username,
+    avatar: info.avatar,
+    seen: Date.now()
+  });
+
+  let u = users.get(info.id);
+
+  if (u && u.ws && u.ws !== ws) {
+    send(u, {
+      t: 'replaced'
+    });
+
+    u.ws.close();
+  }
+
+  if (!u) {
+    u = {
+      id: info.id,
+      game: null
+    };
+
+    users.set(info.id, u);
+  }
+
+  Object.assign(u, info, {
+    ws
+  });
+
+  ws.user = u;
+
+  playersDirty();
+
+  unwatch(u);
+
+  send(u, {
+    t: 'hello',
+    me: pub(u),
+    lang: userLang(u)
+  });
+
+  send(u, shopMsg(u.id));
+
+  {
+    const icode = userInvites.get(u.id);
+    const inv = icode && invites.get(icode);
+
+    if (inv) {
+      clearTimeout(inv.offlineTimer);
+
+      const joiner = inv.pending ? users.get(inv.pending) : null;
+      inv.pending = null;
+
+      if (
+        joiner &&
+        joiner.id !== u.id &&
+        isOnline(joiner) &&
+        !isBusy(joiner) &&
+        !isBusy(u)
+      ) {
+        removeInvite(icode);
+        send(u, { t: 'invite_joined' });
+        startGame(u, joiner);
+      }
+    }
+  }
+
+  const g = u.game && games.get(u.game);
+
+  if (g) {
+    clearTimeout(g.timers[u.id]);
+    delete g.timers[u.id];
+
+    send(u, gameState(g, u.id));
+
+    if (g.waitingForOpponent) {
+      const roomCode = groupPlayerRooms.get(
+        String(u.id)
+      );
+
+      const room = roomCode &&
+        groupRooms.get(roomCode);
+
+      if (room) {
+        if (isGroupBlocked(room.chatId)) {
+          cleanupGroupRoom(room.code);
+
+          return send(u, {
+            t: 'group_error',
+            code: 'blocked'
+          });
+        }
+
+        room.connected.add(String(u.id));
+
+        if (!room.firstConnectedId) {
+          room.firstConnectedId = String(u.id);
+        }
+
+        const first = users.get(
+          String(room.players[0].id)
+        );
+
+        const second = users.get(
+          String(room.players[1].id)
+        );
+
+        const bothConnected =
+          first &&
+          second &&
+          first.ws &&
+          first.ws.readyState === 1 &&
+          second.ws &&
+          second.ws.readyState === 1 &&
+          room.connected.has(String(first.id)) &&
+          room.connected.has(String(second.id));
+
+        if (
+          bothConnected &&
+          room.pendingGame
+        ) {
+          startGroupMatch(
+            room,
+            room.pendingGame
+          );
+        } else if (room.pendingGame) {
+          startGroupWaitingTimer(
+            room,
+            room.pendingGame,
+            room.firstConnectedId
+          );
+
+          send(u, groupWaitingMessage(room));
+          sendGroupWaiting(room);
+        }
+      }
+    } else {
+      const opp = users.get(
+        g.p[G.other(sideOfUser(g, u.id))]
+      );
+
+      send(opp, {
+        t: 'away',
+        left: false
+      });
+
+      if (g.timers[opp.id]) {
+        send(u, {
+          t: 'away',
+          left: true,
+          seconds: GRACE
+        });
+      }
+
+      sendTurnTimer(g);
+    }
+  } else {
+    u.game = null;
+  }
+}
+
+/* ---------- WebSocket қосылымы ---------- */
+
+wss.on('connection', ws => {
+  ws.isAlive = true;
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
+
+  const authTimer = setTimeout(() => {
+    if (!ws.user) ws.close();
+  }, 10000);
+
+  ws.on('message', raw => {
+    let m;
+
+    try {
+      m = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    if (!m || typeof m.t !== 'string') {
+      return;
+    }
+
+    if (!ws.user) {
+      return m.t === 'auth'
+        ? onAuth(ws, m)
+        : undefined;
+    }
+
+    if (ws.user.ws !== ws) return;
+
+    handle(ws.user, m);
+  });
+
+  ws.on('close', () => {
+    clearTimeout(authTimer);
+
+    const u = ws.user;
+
+    if (!u || u.ws !== ws) return;
+
+    u.ws = null;
+
+    playersDirty();
+
+    unwatch(u);
+
+    dequeue(u.id);
+    clearPInvitesOf(u.id);
+
+    {
+      const icode = userInvites.get(u.id);
+      const inv = icode && invites.get(icode);
+
+      if (inv) {
+        clearTimeout(inv.offlineTimer);
+
+        inv.offlineTimer = setTimeout(() => {
+          const o = users.get(u.id);
+
+          if (!o || !o.ws || o.ws.readyState !== 1) {
+            removeInvite(icode);
+          }
+        }, 90 * 1000);
+
+        if (inv.offlineTimer.unref) inv.offlineTimer.unref();
+      }
+    }
+
+    touchProfile(u.id, { seen: Date.now() });
+
+    const roomCode = groupPlayerRooms.get(
+      String(u.id)
+    );
+
+    const room = roomCode &&
+      groupRooms.get(roomCode);
+
+    if (room && !room.started) {
+      room.connected.delete(String(u.id));
+    }
+
+    const g = u.game && games.get(u.game);
+
+    if (!g) return;
+
+    if (g.waitingForOpponent) {
+      if (room && room.waitingDeadline) {
+        sendGroupWaiting(room);
+      }
+
+      return;
+    }
+
+    const side = sideOfUser(g, u.id);
+
+    send(
+      users.get(
+        g.p[G.other(side)]
+      ),
+      {
+        t: 'away',
+        left: true,
+        seconds: GRACE
+      }
+    );
+
+    g.timers[u.id] = setTimeout(() => {
+      finish(
+        g,
+        G.other(side),
+        'left'
+      );
+    }, GRACE * 1000);
+  });
+});
+
+/* ---------- WebSocket ping ---------- */
+
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (!ws.isAlive) {
+      return ws.terminate();
+    }
+
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 25000).unref();
+
+/* ---------- Серверді іске қосу ---------- */
+
+if (require.main === module || process.env.CF_WORKER === '1') {
+  const shutdown = async signal => {
+    console.log(signal + ': жабылар алдында деректер сақталуда...');
+
+    try {
+      // Күтіп тұрған (біріктірілген) сақтауларды дереу жазамыз
+      if (statsTimer) saveStatsNow();
+      if (profilesTimer) saveProfilesNow();
+      if (grSaveTimer) grSaveNow();
+
+      await Promise.race([
+        flushStorage(),
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+    } catch (error) {
+      console.error(error.message);
+    }
+
+    process.exit(0);
+  };
+
+  if (typeof process.once === 'function' && process.env.CF_WORKER !== '1') {
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
+    process.once('SIGINT', () => shutdown('SIGINT'));
+  }
+
+  initStorage().then(() => {
+    server.listen(PORT, () => {
+      console.log(
+        `Shashka сервері: http://localhost:${PORT}` +
+        `${DEV ? ' (DEV режимі)' : ''}`
+      );
+
+      console.log('Негізгі админ:', OWNER_ID);
+      console.log('Қосымша админдер:', admins.size);
+      console.log('Блокталған топтар:', blockedGroups.size);
+
+      if (process.env.SKIP_WEBHOOK !== '1') setupTelegramWebhook();
+
+      // Ешкім кірмесе де апта соңында сыйлықтар берілуі үшін
+      setInterval(grRoll, 60 * 1000).unref();
+    });
+  });
+}
+
+module.exports = {
+  server,
+  games,
+  users,
+  invites,
+  groupRooms,
+  savedGroups,
+  admins,
+  blockedGroups,
+  stats,
+  initStorage
+};
