@@ -22,6 +22,7 @@ export class Hub extends DurableObject {
         Object.defineProperty(process, 'env', { value: { ...process.env, ...vars }, writable: true, configurable: true });
       } catch (e) { console.error('process.env set failed:', e && e.message); }
     }
+    state.persist = (k, v) => { try { this.ctx.storage.put(k, v); } catch {} };
     this.ready = new Promise((resolve, reject) => {
       state.listening = resolve;
       setTimeout(() => reject(new Error('startup timeout')), 25000);
@@ -43,8 +44,8 @@ export class Hub extends DurableObject {
         bootErr,
         hasHandler: !!state.handler,
         clients: state.wss ? state.wss.clients.size : null,
-        lastIn: state.lastIn || [],
-        lastOut: state.lastOut || []
+        lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
+        lastOut: state.lastOut || (await this.ctx.storage.get('lastOut')) || []
       });
     }
     try {
