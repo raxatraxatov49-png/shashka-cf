@@ -13,7 +13,7 @@ class Socket {
   emit(ev, ...a) { (this.h[ev] || []).slice().forEach(fn => { try { fn(...a); } catch (e) { console.error('ws handler error:', e && e.message); } }); }
   send(data) {
     if (this.readyState !== 1) return;
-    try { (state.lastOut = (state.lastOut || []).slice(-3)).push(String(data).slice(0, 100)); } catch {}
+    try { (state.lastOut = (state.lastOut || []).slice(-3)).push(String(data).slice(0, 100)); state.persist && state.persist('lastOut', state.lastOut); } catch {}
     try { this.sock.send(data); } catch {}
   }
   close() { if (this.readyState === 3) return; this.readyState = 2; try { this.sock.close(1000, 'bye'); } catch {} }
@@ -44,7 +44,7 @@ class WebSocketServer {
       const size = typeof d === 'string' ? d.length : (d.byteLength || 0);
       if (size > MAX_PAYLOAD) { ws.close(); return; }
       ws.isAlive = true;
-      try { (state.lastIn = (state.lastIn || []).slice(-3)).push(String(d).slice(0, 120)); } catch {}
+      try { (state.lastIn = (state.lastIn || []).slice(-3)).push(String(d).slice(0, 120)); state.persist && state.persist('lastIn', state.lastIn); } catch {}
       ws.emit('message', d);
     });
     sock.addEventListener('close', done);
