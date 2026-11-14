@@ -32,13 +32,27 @@ export class Hub extends DurableObject {
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === '/_debug') {
+      let bootErr = null;
+      try { await this.boot; await this.ready; } catch (e) { bootErr = String(e && e.message); }
+      return Response.json({
+        DEV: process.env.DEV ?? null,
+        CF_WORKER: process.env.CF_WORKER ?? null,
+        envKeys: Object.keys(process.env).filter(k => !/TOKEN|SECRET|REDIS/i.test(k)),
+        bootErr,
+        hasHandler: !!state.handler,
+        clients: state.wss ? state.wss.clients.size : null,
+        lastIn: state.lastIn || [],
+        lastOut: state.lastOut || []
+      });
+    }
     try {
       await this.boot;
       await this.ready;
     } catch (e) {
       return new Response('starting', { status: 503 });
     }
-    const url = new URL(request.url);
 
     if (url.pathname === '/ws') {
       if (request.headers.get('Upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
