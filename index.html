@@ -1,0 +1,318 @@
+
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#efe3cf">
+<title>Дойбы</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="shop.css">
+<link rel="stylesheet" href="rating.css">
+<link rel="stylesheet" href="winter.css?v=1">
+
+<style>
+.rprize{margin:0 0 12px;padding:12px;border-radius:16px;background:rgba(245,197,66,.10);border:1px solid rgba(245,197,66,.35)}
+.rprize.hidden{display:none}
+.rp-title{font-weight:700;font-size:14px;margin-bottom:8px;color:#f5c542}
+.rp-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.rp-chip{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;background:rgba(255,255,255,.07);font-size:13px}
+.rp-chip .lab{font-size:15px;line-height:1.2}
+.rp-chip b{display:flex;align-items:center;gap:3px;font-size:14px}
+.rp-chip .coin{display:inline-block;width:14px;height:14px;flex:none}
+.rp-note{margin-top:8px;font-size:11px;opacity:.7;text-align:center}
+</style>
+</head>
+<body>
+
+<main id="menu" class="screen active">
+  <header class="who">
+    <div class="ava" id="meAva"></div>
+    <div><b id="meName">…</b><small data-i18n="playerRole">Дойбы ойыншысы</small></div>
+    <button id="btnCoins" class="coinbtn" type="button"><i class="coin"></i><span class="cnum">0</span></button>
+  </header>
+
+  <div class="titlerow">
+    <button id="btnRank" class="rankbtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8"/></svg><span id="rankBtnTxt">Ранг</span></button>
+    <button id="btnVip" class="vipbtn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 18h18l1-11-5 4-5-8-5 8-5-4z" fill="currentColor"/></svg><span id="vipBtnTxt" data-i18n="vipBtn">VIP сатып алу</span></button>
+  </div>
+
+  <section class="card brown">
+    <h2 data-i18n="randomTitle">Кездейсоқ қарсылас</h2>
+    <p data-i18n="randomDesc">Қазір қарсылас іздеп жүрген ойыншымен ойнаңыз</p>
+    <button id="btnBatl" class="batl">ОЙНАУ</button>
+    <button id="btnCancel" class="ghost hidden" data-i18n="cancel">Бас тарту</button>
+  </section>
+
+  <section class="card brown friend-card">
+    <h2 data-i18n="friendTitle">Досыңмен ойнау</h2>
+    <p data-i18n="friendDesc">Досыңа шақыру сілтемесін жіберіп, бірге дойбы ойна</p>
+    <button id="btnFriend" class="batl" data-i18n="friendBtn">ДОСЫҢМЕН ОЙНАУ</button>
+  </section>
+
+  <div class="tiles">
+    <button id="btnShop" class="tile" type="button">
+      <span class="tic">🛍</span>
+      <span><b data-i18n="shopTile">Магазин</b><small data-i18n="shopTileSub">Тақта мен тастар</small></span>
+    </button>
+    <button id="btnRefs" class="tile" type="button">
+      <span class="tic">👥</span>
+      <span><b data-i18n="friendsTile">Достар</b><small class="rw" id="tileReward">+50</small></span>
+    </button>
+  </div>
+
+  <div class="tiles tiles-two">
+    <button id="btnRating" class="tile" type="button">
+      <span class="tic">🏆</span>
+      <span><b data-i18n="ratingTile">Рейтинг</b><small data-i18n="ratingTileSub">Үздік ойыншылар</small></span>
+    </button>
+    <button id="btnPlayers" class="tile" type="button">
+      <span class="tic">🎮</span>
+      <span><b data-i18n="playersTile">Ойыншылар</b><small class="pcnt" id="tilePlayersSub" data-i18n="playersTileSub">Бот ойыншылары</small></span>
+    </button>
+  </div>
+</main>
+
+<main id="shop" class="screen">
+  <div class="sbar">
+    <button class="sback" data-back type="button" aria-label="Back">‹</button>
+    <h1 data-i18n="shopTitle">Магазин</h1>
+    <div class="coinbtn"><i class="coin"></i><span class="cnum">0</span></div>
+  </div>
+  <div class="stabs">
+    <button id="tabBoards" type="button" data-i18n="tabBoards">Тақталар</button>
+    <button id="tabPieces" type="button" data-i18n="tabPieces">Тастар</button>
+  </div>
+  <button id="btnCoinsBuy" class="coinopen" type="button">
+    <span><span class="cdot"></span> <span data-i18n="packsTitle">Койн сатып алу</span></span>
+    <b>›</b>
+  </button>
+
+  <div id="shopGrid" class="sgrid"></div>
+
+  <button id="btnShopRefs" class="batl gold" type="button" data-i18n="shopInviteBtn">Достарды шақырып койн жина</button>
+</main>
+
+<main id="coins" class="screen">
+  <div class="sbar">
+    <button class="sback" id="btnCoinsBack" type="button" aria-label="Back">‹</button>
+    <h1 data-i18n="packsTitle">Койн сатып алу</h1>
+    <div class="coinbtn"><i class="coin"></i><span class="cnum">0</span></div>
+  </div>
+  <div id="packGrid" class="pgrid"></div>
+</main>
+
+<div id="vipDim" class="vipdim"></div>
+<div id="vipSheet" class="vipsheet" role="dialog" aria-label="Shashka VIP">
+  <div class="viphd"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M3 18h18l1-11-5 4-5-8-5 8-5-4z" fill="currentColor"/></svg><h2 data-i18n="vipTitle">Shashka VIP</h2><button id="vipClose" class="vipx" type="button" aria-label="Close">✕</button></div>
+  <div class="vippk">
+    <p id="vipStatus" class="vipsub" data-i18n="vipSub">1 ай бойы барлық мүмкіндік ашық</p>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span><div><b data-i18n="vipP1">Ойынды қарағанда чатқа жазу</b><p data-i18n="vipD1"></p></div></div>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></span><div><b data-i18n="vipP2">Барлық тақта түрлері</b><p data-i18n="vipD2"></p></div></div>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg></span><div><b data-i18n="vipP3">Барлық тас түрлері</b><p data-i18n="vipD3"></p></div></div>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><div><b data-i18n="vipP6">Таңдауыңыз қарсыласқа көрінеді</b><p data-i18n="vipD6"></p></div></div>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18h18l1-11-5 4-5-8-5 8-5-4z"/></svg></span><div><b data-i18n="vipP4">Профильде VIP жазуы мен тәжі</b><p data-i18n="vipD4"></p></div></div>
+    <div class="vipit"><span class="vipic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b data-i18n="vipP5">Мерзімі: 30 күн</b><p data-i18n="vipD5"></p></div></div>
+  </div>
+  <div class="vipft">
+    <button id="btnVipBuy" class="vipbuy" type="button">★ <span id="vipPrice">100 Stars / ай</span></button>
+    <div class="vipnote" data-i18n="vipNote">Төлем Telegram Stars арқылы жасалады</div>
+  </div>
+</div>
+
+<main id="refs" class="screen">
+  <div class="sbar">
+    <button class="sback" data-back type="button" aria-label="Back">‹</button>
+    <h1 data-i18n="refTitle">Достарды шақыр</h1>
+    <div class="coinbtn"><i class="coin"></i><span class="cnum">0</span></div>
+  </div>
+  <section class="card brown">
+    <h2 id="refHead">…</h2>
+    <p id="refDesc">…</p>
+    <input id="refLink" class="reflink" type="text" readonly autocomplete="off">
+    <div class="refbtns">
+      <button id="btnRefCopy" class="batl" type="button" data-i18n="copyLink">Сілтемені көшіру</button>
+      <button id="btnRefShare" class="batl" type="button" data-i18n="shareTg">Telegram арқылы жіберу</button>
+    </div>
+  </section>
+  <div class="refcount"><b id="refCount">0</b><span data-i18n="invitedCount">шақырылған дос</span></div>
+  <div id="refList" class="reflist"></div>
+</main>
+
+<main id="rank" class="screen">
+  <div class="sbar">
+    <button class="sback" data-back type="button" aria-label="Back">‹</button>
+    <h1 id="rkTitle">Ранг</h1>
+    <div class="coinbtn"><i class="coin"></i><span class="cnum">0</span></div>
+  </div>
+  <div id="rkHero" class="rkhero"></div>
+  <div id="rkLadder" class="rkladder"></div>
+  <div id="rkTopT" class="rktop">Топ 100</div>
+  <div id="rkList" class="rklist"></div>
+</main>
+
+<main id="rating" class="screen">
+  <div class="sbar">
+    <button class="sback" data-back type="button" aria-label="Back">‹</button>
+    <h1 data-i18n="ratingTitle">Рейтинг</h1>
+    <div class="coinbtn"><i class="coin"></i><span class="cnum">0</span></div>
+  </div>
+  <div class="stabs">
+    <button id="tabWeek" type="button" data-i18n="ratingWeek">Осы апта</button>
+    <button id="tabAll" type="button" data-i18n="ratingAll">Барлық уақыт</button>
+  </div>
+  <div id="ratingInfo" class="rinfo"></div>
+  <div id="ratingPrize" class="rprize hidden"></div>
+  <div id="ratingList" class="rlist"></div>
+  <div id="ratingMe" class="rmewrap hidden"></div>
+</main>
+
+<main id="players" class="screen">
+  <div class="sbar">
+    <button class="sback" data-back type="button" aria-label="Back">‹</button>
+    <h1 data-i18n="playersTitle">Ойыншылар</h1>
+    <button id="btnDnd" class="dndbtn" type="button" role="switch" aria-checked="false" aria-label="Мазаламаңыз режимі"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="#f4c542"/></svg><span class="sw"></span></button>
+  </div>
+  <p id="dndHint" class="dndhint" data-i18n="dndHint">Ай белгісі: «Мазаламаңыз» режимі. Қосылғанда сізді ешкім шақыра алмайды.</p>
+  <p id="dndNote" class="dndnote" data-i18n="dndNote">Мазаламаңыз қосулы. Сіз онлайн көрінесіз, бірақ ешкім сізді шақыра алмайды. Сіз басқаларды шақыра аласыз.</p>
+  <div id="plList" class="plscroll"></div>
+</main>
+
+<main id="game" class="screen">
+  <div id="rkrow" class="rkrow hidden"><div id="rkOpp" class="rkchip"></div><div id="rkMe" class="rkchip"></div></div>
+  <div class="gtitle" data-i18n="boardTitle">Классикалық тақта</div>
+
+  <div class="prow" id="rowOpp">
+    <div class="ava ring" id="oppAva"></div>
+    <div class="pinfo"><b id="oppName"></b><small id="oppSub"></small></div>
+    <div class="chip"><i id="oppDot" class="pdot"></i>× <span id="oppCap">0</span></div>
+  </div>
+
+  <div class="boardwrap">
+    <div class="board">
+      <div class="field" id="field">
+        <div class="squares" id="squares"></div>
+        <div class="pieces" id="pieces"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="prow" id="rowMe">
+    <div class="ava ring" id="myAva"></div>
+    <div class="pinfo"><b id="myName"></b><small id="mySub"></small></div>
+    <div class="chip"><i id="myDot" class="pdot"></i>× <span id="myCap">0</span></div>
+  </div>
+
+  <div id="invitebar" class="invitebar">
+    <p id="invStatus">Шақыру сілтемесі дайындалуда...</p>
+    <div class="invbtns">
+      <button id="btnInvCopy" class="invbtn" disabled data-i18n="copyLink">Сілтемені көшіру</button>
+      <button id="btnInvShare" class="invbtn" disabled data-i18n="shareTg">Telegram арқылы жіберу</button>
+    </div>
+    <button id="btnInvCancel" class="invcancel" data-i18n="cancel">Бас тарту</button>
+  </div>
+
+  <nav class="dock">
+    <button id="btnMenu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span data-i18n="menu">Мәзір</span></button>
+    <button id="btnMic" class="hidden" type="button" data-i18n-aria="micBtn"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"/><path class="sl" d="M4 4l16 16"/></svg></button>
+    <button id="btnSnd" class="hidden" type="button" data-i18n-aria="sndBtn"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="sl" d="M4 4l16 16"/></svg></button>
+    <button id="btnChat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span data-i18n="chat">Чат</span><span class="chatlock"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><i class="viptag">VIP</i></span><span id="badge" class="badge hidden">0</span></button>
+  </nav>
+
+  <div id="away" class="away hidden"></div>
+</main>
+
+<div id="sheetInvite" class="sheet hidden">
+  <div class="panel">
+    <div class="phead">
+      <b data-i18n="inviteFriend">Досыңды шақыру</b>
+      <button id="btnCloseInvite" class="x" aria-label="Жабу" data-i18n-aria="close">×</button>
+    </div>
+
+    <p id="inviteStatus">Шақыру сілтемесі дайындалуда...</p>
+
+    <input
+      id="inviteLink"
+      type="text"
+      readonly
+      placeholder="Шақыру сілтемесі"
+      data-i18n-ph="inviteLinkPh"
+      autocomplete="off"
+    >
+
+    <button id="btnCopyInvite" class="batl" disabled data-i18n="copyLink">Сілтемені көшіру</button>
+    <button id="btnShareInvite" class="batl" disabled data-i18n="shareTg">Telegram арқылы жіберу</button>
+    <button id="btnCancelInvite" class="ghost" data-i18n="cancelInvite">Шақырудан бас тарту</button>
+  </div>
+</div>
+
+<div id="sheetMenu" class="sheet hidden">
+  <div class="panel small">
+    <button id="btnResign" class="danger" data-i18n="resign">Берілемін</button>
+    <button id="btnCloseMenu" class="ghost" data-i18n="close">Жабу</button>
+  </div>
+</div>
+
+<div id="sheetChat" class="sheet hidden">
+  <div class="panel">
+    <div class="phead"><b data-i18n="chat">Чат</b><button id="btnCloseChat" class="x" aria-label="Жабу" data-i18n-aria="close">×</button></div>
+    <div id="msgs" class="msgs"></div>
+    <div class="compose">
+      <input id="chatInput" maxlength="300" placeholder="Хабарлама жазыңыз…" data-i18n-ph="msgPh" autocomplete="off" enterkeyhint="send">
+      <button id="btnSend" aria-label="Жіберу" data-i18n-aria="send"><svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<div id="result" class="modal hidden">
+  <div class="dialog">
+    <div id="resEmoji" class="emoji"></div>
+    <h3 id="resTitle"></h3>
+    <p id="resSub"></p>
+    <button id="btnAgain" class="batl" data-i18n="again">Қайта ойнау</button>
+    <button id="btnToMenu" class="ghost" data-i18n="toMenu">Басты мәзір</button>
+  </div>
+</div>
+
+<div id="sheetPIn" class="sheet hidden">
+  <div class="panel pin">
+    <div id="pinAva" class="ava"></div>
+    <h3 id="pinName"></h3>
+    <p data-i18n="pIncomingSub">сені дойбы ойынына шақырды</p>
+    <button id="btnPinYes" class="batl" type="button" data-i18n="pAccept">Қабылдау</button>
+    <button id="btnPinNo" class="ghost" type="button" data-i18n="pDecline">Қабылдамау</button>
+  </div>
+</div>
+
+<div id="ptoast" class="ptoast hidden"></div>
+
+<div id="conn" class="conn hidden" data-i18n="connLost">Байланыс үзілді. Қайта қосылуда…</div>
+<div id="fatal" class="modal hidden"><div class="dialog"><h3 id="fatalTitle"></h3><p id="fatalSub"></p></div></div>
+
+<script>
+(function () {
+  var tg = window.Telegram && Telegram.WebApp;
+  if (!tg) return;
+  tg.ready();
+  tg.expand();
+  try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
+
+  function applyInsets() {
+    var sys = (tg.safeAreaInset && tg.safeAreaInset.top) || 0;
+    var content = (tg.contentSafeAreaInset && tg.contentSafeAreaInset.top) || 0;
+    var top = sys + content;
+    // Fullscreen режимінде Android кейде 0 қайтарады — запас мән
+    if (tg.isFullscreen && top < 24) top = 48;
+    document.documentElement.style.setProperty('--safe-t', top + 'px');
+  }
+
+  applyInsets();
+  tg.onEvent('safeAreaChanged', applyInsets);
+  tg.onEvent('contentSafeAreaChanged', applyInsets);
+  tg.onEvent('fullscreenChanged', applyInsets);
+})();
+</script>
+<script src="app.js"></script>
+</body>
+</html>

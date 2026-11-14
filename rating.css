@@ -1,0 +1,295 @@
+/* Рейтинг: басты беттегі батырма және рейтинг беті */
+
+#menu { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* Басқа батырмалармен бірдей .tile, бірақ бөлек қатарда, толық ені */
+.tiles.tiles-one {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 12px;
+}
+
+.tiles.tiles-one .tile { width: 100%; }
+
+#rating .rinfo {
+  margin: 4px 2px 10px;
+  text-align: center;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+
+#rating .rlist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-bottom: 8px;
+}
+
+#rating .rempty {
+  margin-top: 40px;
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 15px;
+}
+
+.rrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #202020;
+  color: #f2f2f2;
+  text-align: left;
+  flex: none;
+}
+
+button.rrow:active { background: #2a2a2a; }
+
+.rrow.first { background: linear-gradient(90deg, #3a2f10, #202020); }
+
+.rrow .rpl {
+  width: 30px;
+  flex: none;
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: #a0a0a0;
+}
+
+.rrow .ava { width: 42px; height: 42px; font-size: 17px; }
+
+.rrow .rnm { min-width: 0; flex: 1; }
+
+.rrow .rnm b {
+  display: block;
+  font-size: 15px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rrow .rnm small {
+  display: block;
+  font-size: 12.5px;
+  color: #6aa7ff;
+}
+
+.rrow.mine .rnm small { color: #a0a0a0; }
+
+.rrow .rpt {
+  flex: none;
+  text-align: right;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.rrow .rpt small { display: block; font-size: 13px; margin-top: 2px; }
+
+#rating .rmewrap {
+  flex: none;
+  padding-top: 8px;
+}
+
+#rating .rmewrap .rrow {
+  background: #2a2412;
+  box-shadow: inset 0 0 0 1px #f6c453;
+}
+
+/* Ойыншылар бөлімі */
+
+.tiles.tiles-two { margin-top: 12px; }
+
+.pcnt { color: #34c759 !important; font-weight: 700; }
+
+#players .plscroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+.plhead {
+  margin: 12px 2px 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+
+.plempty { margin-top: 40px; text-align: center; color: #a0a0a0; font-size: 15px; }
+
+.plrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  margin-bottom: 7px;
+  border-radius: 16px;
+  background: #202020;
+  color: #f2f2f2;
+}
+
+.plrow .pwrap { position: relative; flex: none; }
+.plrow .ava { width: 42px; height: 42px; font-size: 17px; }
+.plrow.off .ava { opacity: .55; }
+
+.plrow .pdot2 {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #34c759;
+  border: 2px solid #202020;
+}
+
+.plrow .pdot2.game { background: #f6c453; }
+
+.plrow .rnm { min-width: 0; flex: 1; }
+.plrow .rnm b { display: block; font-size: 15px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.plrow .rnm small { display: block; font-size: 12.5px; color: #a0a0a0; }
+.plrow .rnm small.on { color: #34c759; }
+.plrow .rnm small.game { color: #f6c453; }
+
+.plact {
+  flex: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  background: #eee;
+  color: #111;
+}
+
+.plact.wait { background: #2a2a2a; color: #a0a0a0; }
+.plact.dis { background: transparent; color: #777; border: 1px solid #333; }
+
+.pin { text-align: center; }
+.pin .ava { width: 72px; height: 72px; font-size: 30px; margin: 0 auto 10px; }
+.pin h3 { font-size: 19px; }
+.pin p { color: #a0a0a0; margin: 6px 0 14px; font-size: 14px; }
+
+.ptoast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-width: 90%;
+  padding: 11px 16px;
+  border-radius: 14px;
+  background: #2a2a2a;
+  color: #f2f2f2;
+  font-size: 14px;
+  text-align: center;
+  z-index: 60;
+}
+
+.ptoast.hidden { display: none; }
+
+/* Дауыстық байланыс */
+
+#btnMic .sl, #btnSnd .sl { display: none; }
+#btnMic:not(.on) .sl, #btnSnd.off .sl { display: block; }
+#btnMic.on { color: #34c759; }
+#btnSnd.off { color: #a0a0a0; }
+#btnMic.hidden, #btnSnd.hidden { display: none; }
+
+/* Койн пакеттері */
+
+.pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.pack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 0;
+  border-radius: 18px;
+  background: #202020;
+  color: #f2f2f2;
+}
+
+.pack:active { background: #2a2a2a; }
+.pack .pkc { font-size: 20px; font-weight: 800; color: #f6c453; display: flex; align-items: center; gap: 6px; }
+.pack .pks { font-size: 14px; font-weight: 800; background: #2a2a2a; border-radius: 12px; padding: 5px 12px; }
+
+.coinopen {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  margin: 0 0 12px;
+  border: 0;
+  border-radius: 18px;
+  background: #202020;
+  color: #f6c453;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.coinopen:active { background: #2a2a2a; }
+.coinopen b { font-size: 24px; color: #a0a0a0; }
+.coinopen .cdot { vertical-align: -2px; }
+
+
+/* Админ: тәж, жарқыраған шеті және АДМИН белгісі */
+
+.ava.admf {
+  position: relative;
+  overflow: visible !important;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px #ffd45e,
+    0 0 10px 2px rgba(255, 212, 94, .85),
+    0 0 26px 6px rgba(255, 190, 40, .55);
+}
+
+.ava.admf img { border-radius: 50%; }
+
+.ava.admf::after {
+  content: '👑';
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 212, 94, .9));
+}
+
+.admtag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #d9aa3c, #f6c453);
+  color: #2a1f00;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  vertical-align: 2px;
+}
+
+.cdot {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a0, #e0b247 60%, #b88a24);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25);
+}
