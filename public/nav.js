@@ -28,6 +28,12 @@
     nav.id = 'bnav';
     nav.setAttribute('aria-label', 'Navigation');
 
+    // Сырғитын «шыны» көрсеткіш (iOS Liquid Glass ұқсас)
+    var ind = document.createElement('span');
+    ind.className = 'ind';
+    ind.setAttribute('aria-hidden', 'true');
+    nav.appendChild(ind);
+
     TABS.forEach(function (t) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -95,6 +101,29 @@
       for (var i = 0; i < labels.length; i++) labels[i].textContent = arr[i];
     }
 
+    var lastIdx = -2;
+    var moveTimer = null;
+
+    function moveIndicator(current) {
+      var idx = -1;
+      TABS.forEach(function (t, i) { if (t.id === current) idx = i; });
+      if (idx === lastIdx) return;
+
+      ind.classList.toggle('hide', idx < 0);
+
+      if (idx >= 0) {
+        nav.style.setProperty('--i', String(idx));
+
+        if (lastIdx !== -2) {
+          nav.classList.add('moving');
+          clearTimeout(moveTimer);
+          moveTimer = setTimeout(function () { nav.classList.remove('moving'); }, 260);
+        }
+      }
+
+      lastIdx = idx;
+    }
+
     function sync() {
       var scr = activeScreen();
       var show = false;
@@ -115,6 +144,8 @@
         }, 350);
       }
 
+      moveIndicator(current);
+
       var btns = nav.querySelectorAll('button');
       for (var i = 0; i < btns.length; i++) {
         btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === current);
@@ -123,6 +154,7 @@
 
     setLabels();
     sync();
+    setTimeout(function () { nav.classList.add('ready'); }, 80);
 
     if (window.MutationObserver) {
       var mo = new MutationObserver(sync);
