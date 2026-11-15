@@ -49,11 +49,41 @@
       return Boolean(s && s.classList.contains('show'));
     }
 
+    // Ойын бөліміне оралу: app.js ішіндегі show('menu') сол экрандардың «артқа» батырмалары арқылы шақырылады
+    function goMenu() {
+      for (var n = 0; n < 4; n++) {
+        var scr = document.querySelector('.screen.active');
+        if (!scr || scr.id === 'menu' || scr.id === 'game') return;
+        var back = scr.querySelector('[data-back]');
+        if (!back && scr.id === 'coins') back = byId('btnCoinsBack');
+        if (!back) break;
+        back.click();
+      }
+    }
+
+    function closeVipPage() {
+      var x = byId('vipClose');
+      if (x) x.click();
+    }
+
     function openTab(id) {
-      if (id === 'menu') {
-        if (typeof window.show === 'function') window.show('menu');
+      if (id === 'vip') {
+        if (vipOpen()) return;
+        var vb = byId('btnVip');
+        if (vb) {
+          document.body.classList.add('vip-page');
+          vb.click();
+        }
         return;
       }
+
+      if (vipOpen()) closeVipPage();
+
+      if (id === 'menu') {
+        goMenu();
+        return;
+      }
+
       var btn = byId(OPEN_BTN[id]);
       if (btn) btn.click();
     }
@@ -77,6 +107,13 @@
       if (show && vipOpen()) current = 'vip';
 
       document.body.classList.toggle('has-nav', show);
+
+      // VIP беті жабылған соң толық экран режимін сәл кідіріп алып тастаймыз (жабылу анимациясы бітуі үшін)
+      if (!vipOpen() && document.body.classList.contains('vip-page')) {
+        setTimeout(function () {
+          if (!vipOpen()) document.body.classList.remove('vip-page');
+        }, 350);
+      }
 
       var btns = nav.querySelectorAll('button');
       for (var i = 0; i < btns.length; i++) {
