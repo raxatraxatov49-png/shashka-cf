@@ -16,10 +16,6 @@ class_name = "Hub"
 tag = "v1"
 new_sqlite_classes = ["Hub"]
 
-# ---- СЫНАҚ РЕЖИМІ: нағыз ботқа әсер етпейді. Көшіруге дайын болғанда README-дегі "Көшу" бөлімін орында ----
 [vars]
-DEV = "1"
-SKIP_WEBHOOK = "1"
-REDIS_PREFIX = "shashka-test:"
 WEBHOOK_URL = "https://shashka-cf.raxatarzubaev.workers.dev/telegram-webhook"
 MINI_APP_URL = "https://shashka-cf.raxatarzubaev.workers.dev"
