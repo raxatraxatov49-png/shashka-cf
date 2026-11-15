@@ -1,23 +1,25 @@
-/* Төменгі навигация (Ойын · Рейтинг · VIP · Дүкен · Ранг) */
-#bnav{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b,0px) + 10px);z-index:10;display:none;grid-template-columns:repeat(5,minmax(0,1fr));padding:8px 6px;border-radius:26px;background:rgba(36,32,48,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+/* Төменгі навигация — iOS «Liquid Glass» стилі: шыны панель және сырғитын көрсеткіш */
+#bnav{--accent:#c9bcff;position:fixed;left:14px;right:14px;bottom:calc(var(--safe-b,0px) + 10px);z-index:10;display:none;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:32px;isolation:isolate;background:linear-gradient(180deg,rgba(66,62,92,.58),rgba(24,22,38,.66));-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(255,255,255,.06),0 12px 32px rgba(0,0,0,.5)}
 body.has-nav #bnav{display:grid}
-#bnav button{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:48px;padding:0;border:0;background:none;color:#a39fb8;font:600 11px/1.1 inherit;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
-#bnav .bt{width:54px;height:34px;border-radius:14px;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s}
-#bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-#bnav button.on{color:#d9d2ff}
-#bnav button.on .bt{background:#8b7bd8;color:#fff}
+#bnav .ind{position:absolute;z-index:0;top:6px;bottom:6px;left:6px;width:calc((100% - 12px) / 5);border-radius:28px;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.26),rgba(255,255,255,.09));box-shadow:inset 0 0 0 1px rgba(255,255,255,.34),inset 0 8px 14px rgba(255,255,255,.14),inset 0 -6px 12px rgba(130,110,255,.14),0 6px 16px rgba(0,0,0,.35);transform:translateX(calc(var(--i,0) * 100%)) scale(var(--sx,1),var(--sy,1))}
+#bnav.ready .ind{transition:transform .55s cubic-bezier(.34,1.45,.5,1),opacity .2s}
+#bnav.moving{--sx:1.1;--sy:1.1}
+#bnav .ind.hide{opacity:0}
+#bnav button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:54px;padding:0;border:0;background:none;color:rgba(235,232,255,.72);font:600 11px/1.1 inherit;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .25s}
+#bnav .bt{display:flex;align-items:center;justify-content:center;width:auto;height:26px;background:none}
+#bnav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#bnav button.on{color:var(--accent)}
 #bnav .bl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){#bnav.ready .ind{transition:none}}
 /* Навигация істегенде жоғарғы Ранг/VIP батырмалары мен тақырыптар қайталанбайды */
-body.has-nav .screen{padding-bottom:calc(var(--safe-b,0px) + 92px)}
+body.has-nav .screen{padding-bottom:calc(var(--safe-b,0px) + 96px)}
 body.has-nav #menu .titlerow,
 body.has-nav #menu .tiles:not(.tiles-two),
 body.has-nav #btnRating{display:none}
 body.has-nav #menu .tiles-two{grid-template-columns:1fr}
-
-/* VIP бөлімі: төменнен шығатын парақ емес, басқа бөлімдер сияқты толық бет. Навигация үстінде көрінеді */
+/* Профиль мен бірінші карточка арасына бос орын */
+body.has-nav #menu .who{margin-bottom:22px}
+/* VIP бөлімі: басқа бөлімдер сияқты толық бет. Навигация үстінде көрінеді */
 body.vip-page #vipDim{display:none}
 body.vip-page #vipClose{display:none}
-body.vip-page #vipSheet{top:0;height:auto;max-width:none;margin:0;border:0;border-radius:0;z-index:8;box-sizing:border-box;padding-top:var(--safe-t,0px);padding-bottom:calc(var(--safe-b,0px) + 84px)}
-
-/* Жоғарғы Ранг/VIP батырмалары жасырылғандықтан, профиль мен бірінші карточка арасына бос орын қалдырамыз */
-body.has-nav #menu .who{margin-bottom:22px}
+body.vip-page #vipSheet{top:0;height:auto;max-width:none;margin:0;border:0;border-radius:0;z-index:8;box-sizing:border-box;padding-top:var(--safe-t,0px);padding-bottom:calc(var(--safe-b,0px) + 96px)}
