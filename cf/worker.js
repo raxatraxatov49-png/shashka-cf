@@ -102,6 +102,12 @@ export default {
     if (url.pathname === '/health') {
       return Response.json({ ok: true, DEV: env.DEV || null, SKIP_WEBHOOK: env.SKIP_WEBHOOK || null, keys: Object.keys(env) });
     }
+    if (url.pathname === '/app.js') {
+      // Клиент қатты кодталған Render хостына қосылады; оны осы Worker-дің өз хостына ауыстырамыз
+      const r = await env.ASSETS.fetch(request);
+      const text = (await r.text()).split("'shashka-mini-app-tp6r.onrender.com'").join('location.host');
+      return new Response(text, { status: r.status, headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
+    }
     const stub = env.HUB.get(env.HUB.idFromName('main'));
     return stub.fetch(request);
   }
