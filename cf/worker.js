@@ -102,11 +102,16 @@ export default {
     if (url.pathname === '/health') {
       return Response.json({ ok: true, DEV: env.DEV || null, SKIP_WEBHOOK: env.SKIP_WEBHOOK || null, keys: Object.keys(env) });
     }
-    if (url.pathname === '/app.js') {
+    if (url.pathname === '/app.js' || url.pathname === '/_appcheck') {
       // Клиент қатты кодталған Render хостына қосылады; оны осы Worker-дің өз хостына ауыстырамыз
-      const r = await env.ASSETS.fetch(request);
-      const text = (await r.text()).split("'shashka-mini-app-tp6r.onrender.com'").join('location.host');
-      return new Response(text, { status: r.status, headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
+      const r = await env.ASSETS.fetch(new Request(new URL('/app.js', url), { headers: request.headers }));
+      const original = await r.text();
+      const text = original.replace(/(['"`])shashka-mini-app-tp6r\.onrender\.com\1/g, 'location.host');
+      if (url.pathname === '/_appcheck') {
+        const i = text.indexOf('WS_HOST');
+        return Response.json({ status: r.status, originalHasRender: original.includes('onrender'), afterHasRender: text.includes('onrender'), length: original.length, snippet: text.slice(i, i + 260) });
+      }
+      return new Response(text, { status: r.status, headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' } });
     }
     const stub = env.HUB.get(env.HUB.idFromName('main'));
     return stub.fetch(request);
