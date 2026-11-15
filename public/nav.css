@@ -1,0 +1,15 @@
+/* Төменгі навигация (Ойын · Рейтинг · VIP · Дүкен · Ранг) */
+#bnav{position:fixed;left:12px;right:12px;bottom:calc(var(--safe-b,0px) + 10px);z-index:100;display:none;grid-template-columns:repeat(5,minmax(0,1fr));padding:8px 6px;border-radius:26px;background:rgba(36,32,48,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+body.has-nav #bnav{display:grid}
+#bnav button{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:48px;padding:0;border:0;background:none;color:#a39fb8;font:600 11px/1.1 inherit;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#bnav .bt{width:54px;height:34px;border-radius:14px;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s}
+#bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#bnav button.on{color:#d9d2ff}
+#bnav button.on .bt{background:#8b7bd8;color:#fff}
+#bnav .bl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Навигация істегенде жоғарғы Ранг/VIP батырмалары мен тақырыптар қайталанбайды */
+body.has-nav .screen{padding-bottom:calc(var(--safe-b,0px) + 92px)}
+body.has-nav #menu .titlerow,
+body.has-nav #menu .tiles:not(.tiles-two),
+body.has-nav #btnRating{display:none}
+body.has-nav #menu .tiles-two{grid-template-columns:1fr}
