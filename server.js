@@ -52,6 +52,7 @@ const REDIS_PREFIX = process.env.REDIS_PREFIX || 'shashka:';
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
+const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 
 const STORAGE_MODE = USE_REDIS
@@ -205,7 +206,8 @@ const PERMISSIONS = {
   group_manage: '🚫 Топтарды басқару',
   admin_manage: '👑 Админдерді басқару',
   coins: '🪙 Койн беру',
-  vip: '👑 VIP беру'
+  vip: '👑 VIP беру',
+  user_ban: '⛔ Пайдаланушыны блоктау'
 };
 
 const DEFAULT_PERMISSIONS = [
@@ -264,6 +266,120 @@ function getAdminPermissions(id) {
   }
 
   return admins.get(String(id))?.permissions || [];
+}
+
+
+/* ---------- Блокталған пайдаланушылар ---------- */
+
+// bannedUsers[id] = { id, name, username, at }
+const bannedUsers = new Map();
+
+function saveBannedUsers() {
+  storeSave('banned_users', BANNED_USERS_FILE, [...bannedUsers.values()]);
+}
+
+function isBanned(id) {
+  return bannedUsers.has(String(id));
+}
+
+const BAN_TEXT =
+  '⛔ <b>Сіз блокталдыңыз</b>\n' +
+  'Әкімші сізді Shashka ботынан блоктады. Мини аппты ашу және ботты қолдану мүмкін емес.\n\n' +
+  '⛔ <b>Вы заблокированы</b>\n' +
+  'Администратор заблокировал вас в Shashka. Мини-приложение и бот недоступны.\n\n' +
+  '⛔ <b>Siz bloklandingiz</b>\n' +
+  'Admin sizni Shashka botida blokladi. Mini ilova va bot ishlamaydi.';
+
+const UNBAN_TEXT =
+  '✅ <b>Блок алынды</b>\n' +
+  'Енді ойынды және ботты қайта қолдана аласыз.\n\n' +
+  '✅ <b>Блокировка снята</b>\n' +
+  'Теперь вы снова можете пользоваться игрой и ботом.\n\n' +
+  '✅ <b>Blok olib tashlandi</b>\n' +
+  'Endi o‘yin va botdan yana foydalanishingiz mumkin.';
+
+function findUserByUsername(name) {
+  const un = String(name || '').replace(/^@/, '').toLowerCase();
+  if (!/^[a-z0-9_]{4,32}$/.test(un)) return null;
+
+  for (const [id, p] of profiles) {
+    if (String(p.username || '').toLowerCase() === un) return id;
+  }
+
+  for (const [id, e] of Object.entries(globalRating.users)) {
+    if (String(e.username || '').toLowerCase() === un) return id;
+  }
+
+  return null;
+}
+
+function bannedLabel(b) {
+  return (
+    (b.username ? '@' + b.username : (b.name || 'Аты жоқ')) +
+    ' · ' + b.id
+  );
+}
+
+async function banUser(id) {
+  id = String(id);
+
+  if (bannedUsers.has(id)) return { ok: false, already: true };
+
+  const p = profiles.get(id) || {};
+  const e = globalRating.users[id] || {};
+
+  bannedUsers.set(id, {
+    id,
+    name: String(p.name || e.name || '').slice(0, 40),
+    username: String(p.username || e.username || ''),
+    at: Date.now()
+  });
+
+  saveBannedUsers();
+
+  // Қазір ашық тұрса, Mini App-тан лезде шығарамыз
+  const u = users.get(id);
+
+  if (u && u.ws) {
+    try { send(u, { t: 'error', code: 'banned' }); } catch (err) {}
+    try { u.ws.close(); } catch (err) {}
+  }
+
+  let notified = true;
+
+  try {
+    await telegramApi('sendMessage', {
+      chat_id: id,
+      text: BAN_TEXT,
+      parse_mode: 'HTML'
+    });
+  } catch (err) {
+    notified = false;
+  }
+
+  return { ok: true, notified };
+}
+
+async function unbanUser(id) {
+  id = String(id);
+
+  if (!bannedUsers.delete(id)) return { ok: false };
+
+  saveBannedUsers();
+
+  let notified = true;
+
+  try {
+    await telegramApi('sendMessage', {
+      chat_id: id,
+      text: UNBAN_TEXT,
+      parse_mode: 'HTML'
+    });
+  } catch (err) {
+    notified = false;
+  }
+
+  return { ok: true, notified };
 }
 
 /* ---------- Топтарды жүктеу ---------- */
@@ -1045,6 +1161,7 @@ async function initStorage() {
       const adminData = await storeLoad('admins', ADMINS_FILE, []);
       const groupData = await storeLoad('groups', GROUPS_FILE, []);
       const blockedData = await storeLoad('blocked', BLOCKED_FILE, []);
+      const bannedData = await storeLoad('banned_users', BANNED_USERS_FILE, []);
       const statsData = await storeLoad('stats', STATS_FILE, null);
       const langData = await storeLoad('langs', LANGS_FILE, {});
       const ratingData = await storeLoad('ratings', RATINGS_FILE, {});
@@ -1058,6 +1175,13 @@ async function initStorage() {
 
       admins.clear();
       for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
+
+      bannedUsers.clear();
+      if (Array.isArray(bannedData)) {
+        for (const b of bannedData) {
+          if (b && b.id) bannedUsers.set(String(b.id), b);
+        }
+      }
 
       savedGroups.clear();
       if (Array.isArray(groupData)) {
@@ -2129,6 +2253,13 @@ function adminKeyboard(adminId) {
     }]);
   }
 
+  if (hasPermission(adminId, 'user_ban')) {
+    rows.push([{
+      text: '⛔ Пайдаланушыны блоктау',
+      callback_data: 'adm:ban'
+    }]);
+  }
+
   if (hasPermission(adminId, 'group_manage')) {
     rows.push([{
       text: '🚫 Топтарды басқару',
@@ -2296,6 +2427,8 @@ function requiredPermission(data) {
   if (data.startsWith('adm:coins')) return 'coins';
 
   if (data.startsWith('adm:vip')) return 'vip';
+
+  if (data.startsWith('adm:ban')) return 'user_ban';
 
   if (
     data.startsWith('adm:broadcast') ||
@@ -2562,6 +2695,116 @@ async function handleAdminCallback(query) {
     );
 
     await answerCallback(query.id, 'Telegram ID күтілуде.');
+
+    return true;
+  }
+
+  /* Пайдаланушыны блоктау */
+
+  if (data === 'adm:ban') {
+    adminActions.delete(adminId);
+
+    const list = [...bannedUsers.values()]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 30);
+
+    const rows = [[{
+      text: '➕ Блоктау',
+      callback_data: 'adm:ban:add'
+    }]];
+
+    for (const b of list) {
+      rows.push([{
+        text: '🔓 ' + bannedLabel(b).slice(0, 50),
+        callback_data: 'adm:ban:rm:' + b.id
+      }]);
+    }
+
+    rows.push([{
+      text: '🔙 Басты мәзір',
+      callback_data: 'adm:home'
+    }]);
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '⛔ <b>ПАЙДАЛАНУШЫНЫ БЛОКТАУ</b>\n\n' +
+      `Блокталғандар: <b>${bannedUsers.size}</b>\n\n` +
+      'Блокталған адам Mini App-ты аша алмайды және ботқа жаза алмайды. ' +
+      'Блоктан шығару үшін тізімдегі адамды басыңыз.',
+      { inline_keyboard: rows }
+    );
+
+    await answerCallback(query.id);
+
+    return true;
+  }
+
+  if (data === 'adm:ban:add') {
+    adminActions.set(adminId, {
+      action: 'ban_input'
+    });
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '⛔ <b>БЛОКТАУ</b>\n\n' +
+      'Блоктайтын адамның Telegram ID нөмірін немесе @username жіберіңіз.\n\n' +
+      '❌ Болдырмау: /cancel',
+      {
+        inline_keyboard: [[{
+          text: '🔙 Артқа',
+          callback_data: 'adm:ban'
+        }]]
+      }
+    );
+
+    await answerCallback(query.id, 'ID немесе @username күтілуде.');
+
+    return true;
+  }
+
+  if (data.startsWith('adm:ban:rm:')) {
+    const targetId = data.slice('adm:ban:rm:'.length);
+    const r = await unbanUser(targetId);
+
+    await answerCallback(
+      query.id,
+      r.ok
+        ? (r.notified ? '✅ Блок алынды' : '✅ Блок алынды (хабар жіберілмеді)')
+        : 'Бұл адам тізімде жоқ.',
+      true
+    );
+
+    const list = [...bannedUsers.values()]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 30);
+
+    const rows = [[{
+      text: '➕ Блоктау',
+      callback_data: 'adm:ban:add'
+    }]];
+
+    for (const b of list) {
+      rows.push([{
+        text: '🔓 ' + bannedLabel(b).slice(0, 50),
+        callback_data: 'adm:ban:rm:' + b.id
+      }]);
+    }
+
+    rows.push([{
+      text: '🔙 Басты мәзір',
+      callback_data: 'adm:home'
+    }]);
+
+    await editAdminMessage(
+      chatId,
+      messageId,
+      '⛔ <b>ПАЙДАЛАНУШЫНЫ БЛОКТАУ</b>\n\n' +
+      `Блокталғандар: <b>${bannedUsers.size}</b>\n\n` +
+      'Блоктан шығару үшін тізімдегі адамды басыңыз.',
+      { inline_keyboard: rows }
+    );
 
     return true;
   }
@@ -3657,6 +3900,34 @@ async function handleTelegramWebhook(req, res) {
 
     const update = JSON.parse(body);
 
+    /* Блокталған пайдаланушының ешбір әрекетін қабылдамаймыз */
+
+    {
+      const q = update.pre_checkout_query;
+
+      const fromId =
+        (q && q.from && q.from.id) ||
+        (update.message && update.message.from && update.message.from.id) ||
+        (update.callback_query && update.callback_query.from && update.callback_query.from.id);
+
+      if (fromId && isBanned(fromId) && !isAdmin(fromId)) {
+        try {
+          if (q) {
+            await telegramApi('answerPreCheckoutQuery', {
+              pre_checkout_query_id: q.id,
+              ok: false,
+              error_message: 'Access denied'
+            });
+          } else if (update.callback_query) {
+            await answerCallback(update.callback_query.id, '⛔', true);
+          }
+        } catch (err) {}
+
+        res.writeHead(200);
+        return res.end('ok');
+      }
+    }
+
     /* Telegram Stars төлемі */
 
     if (update.pre_checkout_query) {
@@ -3892,7 +4163,8 @@ async function handleTelegramWebhook(req, res) {
           coins_id: 'coins',
           coins_amount: 'coins',
           vip_id: 'vip',
-          vip_days: 'vip'
+          vip_days: 'vip',
+          ban_input: 'user_ban'
         }[action.action];
 
         if (needPerm && !hasPermission(adminId, needPerm)) {
@@ -3901,6 +4173,77 @@ async function handleTelegramWebhook(req, res) {
           await telegramApi('sendMessage', {
             chat_id: message.chat.id,
             text: '⛔ Бұл әрекетке рұқсатыңыз жоқ.'
+          });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action === 'ban_input') {
+          if (input.startsWith('/')) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ ID немесе @username жіберіңіз, не /cancel жазыңыз.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          let target = null;
+
+          if (/^\d{5,15}$/.test(input)) {
+            target = input;
+          } else {
+            target = findUserByUsername(input);
+          }
+
+          if (!target) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text:
+                '⚠️ Ойыншы табылмады.\n' +
+                'Telegram ID (тек сан) немесе ботқа бір рет кірген адамның @username жіберіңіз. /cancel — болдырмау.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          if (isAdmin(target)) {
+            await telegramApi('sendMessage', {
+              chat_id: message.chat.id,
+              text: '⚠️ Админді блоктауға болмайды. Басқа ID жіберіңіз немесе /cancel.'
+            });
+
+            res.writeHead(200);
+            return res.end('ok');
+          }
+
+          adminActions.delete(adminId);
+
+          const r = await banUser(target);
+          const b = bannedUsers.get(String(target));
+
+          await telegramApi('sendMessage', {
+            chat_id: message.chat.id,
+            text: r.already
+              ? `ℹ️ Бұл адам бұрыннан блокта: <code>${escapeHtml(target)}</code>`
+              : '⛔ <b>Блокталды</b>\n\n' +
+                `👤 ${escapeHtml(b ? bannedLabel(b) : target)}\n` +
+                (r.notified
+                  ? '✉️ Оған жеке хабар жіберілді.'
+                  : '⚠️ Хабар жіберілмеді (ол ботты бастамаған болуы мүмкін), бірақ блок қосылды.'),
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[{
+                text: '⛔ Блок тізімі',
+                callback_data: 'adm:ban'
+              }], [{
+                text: '🔙 Басты мәзір',
+                callback_data: 'adm:home'
+              }]]
+            }
           });
 
           res.writeHead(200);
@@ -6396,6 +6739,16 @@ function onAuth(ws, m) {
   }
 
   info.id = String(info.id);
+
+  // Блокталған адам Mini App-қа кіре алмайды
+  if (isBanned(info.id) && !isAdmin(info.id)) {
+    ws.send(JSON.stringify({
+      t: 'error',
+      code: 'banned'
+    }));
+
+    return ws.close();
+  }
 
   trackUser(info.id);
 
