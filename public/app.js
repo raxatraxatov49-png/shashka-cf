@@ -97,6 +97,8 @@ const I18N = {
     "replacedSub": "Бұл есептік жазба басқа жерде ашылған. Осы жерде жалғастыру үшін ойынды қайта ашыңыз.",
     "authTitle": "Кіру қатесі",
     "authSub": "Telegram арқылы растау мүмкін болмады. Ойынды бот арқылы қайта ашыңыз.",
+    "bannedTitle": "Сіз блокталдыңыз",
+    "bannedSub": "Әкімші сізді блоктады. Ойынға кіру мүмкін емес.",
     "inviteInvalid": "Шақыру сілтемесі қате немесе жарамсыз.",
     "inviteExpired": "Шақыру сілтемесінің мерзімі аяқталған.",
     "inviteSelf": "Өзіңіздің шақыру сілтемеңіз арқылы қосыла алмайсыз.",
@@ -331,6 +333,8 @@ const I18N = {
       "replacedSub": "Бул аккаунт басқа жерде ашылған. Бул жерде дауам етиу ушын ойынды қайта ашың.",
       "authTitle": "Кириу қәтеси",
       "authSub": "Telegram арқалы тастыйықлап болмады. Ойынды бот арқалы қайта ашың.",
+      "bannedTitle": "Сиз блокландыңыз",
+      "bannedSub": "Админ сизди блоклады. Ойынға кириу мүмкин емес.",
       "inviteInvalid": "Шақырыу силтемеси қәте яки жараксыз.",
       "inviteExpired": "Шақырыу силтемесиниң мүддети питкен.",
       "inviteSelf": "Өзиңиздиң шақырыу силтемеңиз арқалы қосыла алмайсыз.",
@@ -565,6 +569,8 @@ const I18N = {
     "replacedSub": "Bu hisob boshqa joyda ochilgan. Shu yerda davom etish uchun o‘yinni qayta oching.",
     "authTitle": "Kirish xatosi",
     "authSub": "Telegram orqali tasdiqlab bo‘lmadi. O‘yinni bot orqali qayta oching.",
+    "bannedTitle": "Siz bloklandingiz",
+    "bannedSub": "Admin sizni blokladi. O‘yinga kirish mumkin emas.",
     "inviteInvalid": "Taklif havolasi noto‘g‘ri yoki yaroqsiz.",
     "inviteExpired": "Taklif havolasining muddati tugagan.",
     "inviteSelf": "O‘zingizning taklif havolangiz orqali qo‘shila olmaysiz.",
@@ -799,6 +805,8 @@ const I18N = {
     "replacedSub": "Этот аккаунт открыт в другом месте. Чтобы продолжить здесь, откройте игру заново.",
     "authTitle": "Ошибка входа",
     "authSub": "Не удалось подтвердить через Telegram. Откройте игру заново через бота.",
+    "bannedTitle": "Вы заблокированы",
+    "bannedSub": "Администратор заблокировал вас. Доступ к игре закрыт.",
     "inviteInvalid": "Ссылка-приглашение неверна или недействительна.",
     "inviteExpired": "Срок действия приглашения истёк.",
     "inviteSelf": "Нельзя присоединиться по собственной ссылке.",
@@ -1873,6 +1881,12 @@ function onMsg(m) {
         fatal(
           tr('authTitle'),
           tr('authSub')
+        );
+      } else if (m.code === 'banned') {
+        S.fatal = true;
+        fatal(
+          tr('bannedTitle'),
+          tr('bannedSub')
         );
       } else if (m.code === 'invite_invalid') {
         S.joinDone = true;
