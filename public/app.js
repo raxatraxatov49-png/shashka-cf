@@ -260,17 +260,21 @@ const I18N = {
     "vipOn": "VIP белсенді",
     "vipTitle": "Shashka VIP",
     "vipNew": "ЖАҢА",
-    "vipSub": "1 ай бойы барлық мүмкіндік ашық",
+    "vipSub": "10 күн VIP — 5 дос шақырып ал",
     "vipP1": "Ойынды қарағанда чатқа жазу",
     "vipP2": "Барлық тақта түрлері",
     "vipP3": "Барлық тас түрлері",
     "vipP4": "Профильде VIP жазуы мен тәжі",
-    "vipP5": "Мерзімі: 30 күн",
+    "vipP5": "Мерзімі: 10 күн",
     "vipBuy": "{n} Stars / ай",
     "vipRenew": "Ұзарту: {n} Stars",
     "vipNote": "Төлем Telegram Stars арқылы жасалады",
     "vipLeft": "VIP белсенді: {n} күн қалды",
     "vipPaid": "VIP қосылды! Рахмет 👑",
+    "vipInvBtn": "Дос шақыру",
+    "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бұрын қосылған достар есепке алынбайды, санау 0-ден басталады. 10 күн біткен соң қайтадан 5 дос шақырып, тағы 10 күнге ала аласың.",
+    "vipInvProg": "Шақырылды: {a} / {n}",
+    "vipRefGot": "👑 +{n} VIP 🎉",
     "watchBanner": "Сіз ойынды қарап отырсыз",
     "watchExit": "Қараудан шығу",
     "watchWhiteWin": "Ақ жеңді",
@@ -496,17 +500,21 @@ const I18N = {
       "vipOn": "VIP белсенди",
       "vipTitle": "Shashka VIP",
       "vipNew": "ЖАҢА",
-      "vipSub": "1 ай дауамында барлық мүмкиншиликлер ашық",
+      "vipSub": "10 күн VIP — 5 дос шақырып ал",
       "vipP1": "Ойынды қарағанда чатқа жазыу",
       "vipP2": "Барлық тақта түрлери",
       "vipP3": "Барлық тас түрлери",
       "vipP4": "Профильде VIP жазыуы ҳәм таж",
-      "vipP5": "Мүддети: 30 күн",
+      "vipP5": "Мүддети: 10 күн",
       "vipBuy": "{n} Stars / ай",
       "vipRenew": "Узартыу: {n} Stars",
       "vipNote": "Төлем Telegram Stars арқалы әмелге асырылады",
       "vipLeft": "VIP белсенди: {n} күн қалды",
       "vipPaid": "VIP қосылды! Рахмет 👑",
+      "vipInvBtn": "Дос шақырыў",
+      "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бурын қосылған дослар есапқа алынбайды, санаў 0 ден баслананады. 10 күн питкен соң қайтадан 5 дос шақырып, тағы 10 күнге алыўға болады.",
+      "vipInvProg": "Шақырылды: {a} / {n}",
+      "vipRefGot": "👑 +{n} VIP 🎉",
       "watchBanner": "Сиз ойынды қарап отырсыз",
       "watchExit": "Қараудан шығыу",
       "watchWhiteWin": "Ақ жеңди",
@@ -732,17 +740,21 @@ const I18N = {
     "vipOn": "VIP faol",
     "vipTitle": "Shashka VIP",
     "vipNew": "YANGI",
-    "vipSub": "1 oy davomida barcha imkoniyatlar ochiq",
+    "vipSub": "5 ta do‘st taklif qilib, 10 kunga VIP oling",
     "vipP1": "O‘yinni kuzatayotganda chatga yozish",
     "vipP2": "Barcha taxta turlari",
     "vipP3": "Barcha tosh turlari",
     "vipP4": "Profilda VIP yozuvi va toj",
-    "vipP5": "Muddati: 30 kun",
+    "vipP5": "Muddati: 10 kun",
     "vipBuy": "{n} Stars / oy",
     "vipRenew": "Uzaytirish: {n} Stars",
     "vipNote": "To‘lov Telegram Stars orqali amalga oshiriladi",
     "vipLeft": "VIP faol: {n} kun qoldi",
     "vipPaid": "VIP yoqildi! Rahmat 👑",
+    "vipInvBtn": "Do‘st taklif qilish",
+    "vipInvNote": "5 ta do‘stingizni taklif qilib, 10 kunga VIP oling. Avval qo‘shilgan do‘stlar hisobga olinmaydi, hisob 0 dan boshlanadi. 10 kun tugagach, yana 5 ta do‘st taklif qilib, yana 10 kunga olishingiz mumkin.",
+    "vipInvProg": "Taklif qilindi: {a} / {n}",
+    "vipRefGot": "👑 +{n} VIP 🎉",
     "watchBanner": "Siz o‘yinni kuzatyapsiz",
     "watchExit": "Kuzatishdan chiqish",
     "watchWhiteWin": "Oq yutdi",
@@ -968,17 +980,21 @@ const I18N = {
     "vipOn": "VIP активен",
     "vipTitle": "Shashka VIP",
     "vipNew": "НОВОЕ",
-    "vipSub": "Все возможности открыты на 1 месяц",
+    "vipSub": "Пригласи 5 друзей — получи VIP на 10 дней",
     "vipP1": "Писать в чат при просмотре игры",
     "vipP2": "Все виды досок",
     "vipP3": "Все виды шашек",
     "vipP4": "Надпись VIP и корона в профиле",
-    "vipP5": "Срок: 30 дней",
+    "vipP5": "Срок: 10 дней",
     "vipBuy": "{n} Stars / мес",
     "vipRenew": "Продлить: {n} Stars",
     "vipNote": "Оплата через Telegram Stars",
     "vipLeft": "VIP активен: осталось {n} дн.",
     "vipPaid": "VIP подключён! Спасибо 👑",
+    "vipInvBtn": "Пригласить друзей",
+    "vipInvNote": "Пригласи 5 друзей и получи VIP на 10 дней. Ранее добавленные друзья не учитываются, отсчёт начинается с 0. Когда 10 дней закончатся, можно снова пригласить 5 друзей и получить ещё 10 дней.",
+    "vipInvProg": "Приглашено: {a} / {n}",
+    "vipRefGot": "👑 +{n} VIP 🎉",
     "watchBanner": "Вы наблюдаете за игрой",
     "watchExit": "Выйти из просмотра",
     "watchWhiteWin": "Белые победили",
@@ -3361,7 +3377,9 @@ function onShop(m) {
       closeVip();
     }
   } else if (ev.type === 'ref') {
-    toast(tr('refJoined', { name: ev.name, n: ev.reward }));
+    toast(ev.vipGranted
+      ? tr('vipRefGot', { n: ev.vipDays })
+      : tr('refJoined', { name: ev.name, n: ev.reward }));
     haptic('heavy');
   }
 }
@@ -4310,7 +4328,6 @@ function renderVip() {
   if (!m) return;
 
   const on = Boolean(m.vip);
-  const n = m.vipStars || 100;
 
   $('vipBtnTxt').textContent = tr(on ? 'vipOn' : 'vipBtn');
   $('btnVip').classList.toggle('on', on);
@@ -4320,9 +4337,13 @@ function renderVip() {
     ? tr('vipLeft', { n: vipDaysLeft() })
     : tr('vipSub');
 
-  $('vipPrice').textContent = on
-    ? tr('vipRenew', { n })
-    : tr('vipBuy', { n });
+  $('vipPrice').textContent = tr('vipInvBtn');
+  $('vipInvProg').textContent = tr('vipInvProg', {
+    a: m.vipProg || 0,
+    n: m.vipNeed || 5
+  });
+  $('vipInvBar').style.width =
+    Math.round(((m.vipProg || 0) / (m.vipNeed || 5)) * 100) + '%';
 
   // Басты экрандағы өз профилі
   if (S.me) {
@@ -4410,7 +4431,7 @@ function startCoolTick() {
 
 $('btnVipBuy').onclick = () => {
   haptic('light');
-  send({ t: 'vip_buy' });
+  shareRefLink();
 };
 
 /* ================= РАНГ ================= */
