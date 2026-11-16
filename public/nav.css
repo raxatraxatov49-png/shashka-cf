@@ -12,7 +12,7 @@ body.has-nav #bnav{display:grid}
 #bnav .bl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){#bnav.ready .ind{transition:none}}
 /* Навигация істегенде жоғарғы Ранг/VIP батырмалары мен тақырыптар қайталанбайды */
-body.has-nav .screen{padding-bottom:calc(var(--safe-b,0px) + 96px)}
+body.has-nav .screen{padding-bottom:calc(var(--safe-b,0px) + 90px)}
 body.has-nav #menu .titlerow,
 body.has-nav #menu .tiles:not(.tiles-two),
 body.has-nav #btnRating{display:none}
@@ -23,3 +23,14 @@ body.has-nav #menu .who{margin-bottom:22px}
 body.vip-page #vipDim{display:none}
 body.vip-page #vipClose{display:none}
 body.vip-page #vipSheet{top:0;height:auto;max-width:none;margin:0;border:0;border-radius:0;z-index:8;box-sizing:border-box;padding-top:var(--safe-t,0px);padding-bottom:calc(var(--safe-b,0px) + 96px)}
+
+/* Дүкен: дос шақыру батырмасы Койн сатып алудың астында */
+#shop #btnShopRefs{margin:0 0 12px}
+/* Рейтинг: тізімге көбірек орын беріледі */
+body.has-nav #rating{padding-top:calc(var(--safe-t,0px) + 14px);overflow-y:auto}
+body.has-nav #rating .sback{display:none}
+body.has-nav #rating .sbar{margin-bottom:8px}
+body.has-nav #rating .stabs{margin-bottom:8px}
+body.has-nav #rating .rinfo{margin:0 2px 6px}
+body.has-nav #rating .rlist{min-height:300px;padding-bottom:4px}
+body.has-nav #rating .rmewrap{padding-top:6px}
