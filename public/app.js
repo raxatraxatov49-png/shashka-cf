@@ -7,6 +7,13 @@ const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) {
   tg.ready();
   tg.expand();
+  // Толық экран режимі (Telegram 8.0+): жоғарыда «Закрыть» және ⌄ ••• көрінеді
+  try {
+    const p = String(tg.platform || '').toLowerCase();
+    if (tg.requestFullscreen && !tg.isFullscreen && (p === 'ios' || p === 'android')) {
+      tg.requestFullscreen();
+    }
+  } catch (e) {}
   try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
   try {
     tg.setHeaderColor('#121212');
