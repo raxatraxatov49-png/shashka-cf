@@ -1,0 +1,114 @@
+/* ===== Басты мәзір — заманауи дизайн (тек #menu) ===== */
+#menu{
+  --m-acc:#c9bcff;
+  --m-grad:linear-gradient(135deg,#7b6bff 0%,#9d7bff 45%,#d38bff 100%);
+  --m-gold:linear-gradient(135deg,#ffd36a,#f2a93b);
+}
+
+/* Профиль жолы */
+body #menu .who{
+  padding:10px 12px;border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.08);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+}
+body #menu .coinbtn{
+  background:linear-gradient(180deg,rgba(255,211,106,.18),rgba(255,211,106,.07));
+  border:1px solid rgba(255,211,106,.35);
+  box-shadow:0 0 18px rgba(255,190,70,.15);
+}
+
+/* Ескі «қар жолағын» және тақта өрнегін алып тастаймыз */
+body #menu .card::before,
+body #menu .tile::before{display:none}
+body #menu .card::after{opacity:.5}
+
+/* ---- Бас карточка: «Кездейсоқ қарсылас» ---- */
+body #menu .card.brown{
+  border-radius:28px;padding:22px 20px 20px;
+  border:1px solid rgba(255,255,255,.16);
+  background:
+    radial-gradient(120% 90% at 100% 0%,rgba(211,139,255,.38),transparent 60%),
+    radial-gradient(100% 90% at 0% 100%,rgba(90,120,255,.34),transparent 60%),
+    linear-gradient(160deg,#241f4d,#141233) !important;
+  box-shadow:0 18px 44px rgba(70,50,180,.38),inset 0 1px 0 rgba(255,255,255,.18);
+}
+body #menu .card h2{font-size:27px;font-weight:800;letter-spacing:-.4px;color:#fff}
+body #menu .card p{color:rgba(230,226,255,.7);font-size:14px;margin-bottom:16px}
+
+/* Негізгі батырма */
+body #menu .card .batl{
+  height:58px;border-radius:20px;border:0;
+  background:var(--m-grad) !important;color:#fff !important;
+  font-size:17px;font-weight:800;letter-spacing:2.5px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 10px 26px rgba(123,107,255,.55),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 0 rgba(0,0,0,.14);
+  text-shadow:0 1px 8px rgba(0,0,0,.25);
+  overflow:hidden;
+}
+body #menu .card .batl:not(.busy)::before{
+  content:"";width:20px;height:20px;flex:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+/* Жарқыл (shimmer) */
+body #menu .card .batl:not(.busy)::after{
+  content:"";position:absolute;top:0;bottom:0;left:-40%;width:30%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.38),transparent);
+  transform:skewX(-20deg);animation:m-shine 3.4s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes m-shine{0%,55%{left:-40%}100%{left:130%}}
+body #menu .card .batl:active{transform:scale(.97)}
+body #menu .card .batl.busy{filter:none;opacity:.95}
+body #menu .card .batl.busy .spin{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+
+/* ---- «Досыңмен ойнау»: екінші деңгей, шыны карточка ---- */
+body #menu .friend-card{
+  background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02)) !important;
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 12px 30px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.1);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+}
+body #menu .friend-card .batl{
+  background:rgba(255,255,255,.08) !important;color:var(--m-acc) !important;
+  border:1.5px solid rgba(201,188,255,.5);
+  box-shadow:none;text-shadow:none;font-size:15px;letter-spacing:1.5px;height:54px;
+}
+body #menu .friend-card .batl:not(.busy)::before{
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9bcff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+body #menu .friend-card .batl:not(.busy)::after{display:none}
+
+/* «Бас тарту» батырмасы */
+body #menu .card .ghost{
+  height:48px;border-radius:16px;color:#fff;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+}
+
+/* ---- «Ойыншылар» плиткасы: көлденең қатар ---- */
+body #menu .tile{
+  flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;
+  min-height:76px;padding:14px 16px;border-radius:24px;position:relative;
+  background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02)) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  box-shadow:0 12px 30px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.1);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+}
+body #menu .tile .tic{
+  display:flex;align-items:center;justify-content:center;flex:none;
+  width:48px;height:48px;border-radius:16px;font-size:24px;
+  background:linear-gradient(135deg,rgba(123,107,255,.5),rgba(211,139,255,.3));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
+}
+body #menu .tile b{font-size:18px;color:#fff}
+body #menu .tile small{color:rgba(230,226,255,.6);font-size:13px}
+body #menu .tile::after{
+  content:"›";margin-left:auto;font-size:30px;line-height:1;
+  color:rgba(255,255,255,.4);font-weight:300;
+}
+body #menu .tile small.pcnt{color:#59d98a;font-weight:700}
+body #menu .tile:active{transform:scale(.98)}
+
+@media (prefers-reduced-motion:reduce){
+  body #menu .card .batl:not(.busy)::after{animation:none;display:none}
+}
