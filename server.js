@@ -3834,6 +3834,13 @@ const REF_TEXTS = {
   kaa: (name, n) => `🎉 ${name} сизиң силтемеңиз арқалы қосылды! +${n} койн`
 };
 
+const REF_VIP_TEXTS = {
+  kk: (d) => `👑 5 дос шақырылды! Саған <b>${d} күн VIP</b> берілді!`,
+  uz: (d) => `👑 5 ta do‘st taklif qilindi! Sizga <b>${d} kun VIP</b> berildi!`,
+  ru: (d) => `👑 Приглашено 5 друзей! Вам выдан <b>VIP на ${d} дней</b>!`,
+  kaa: (d) => `👑 5 дос шақырылды! Сизге <b>${d} күн VIP</b> берилди!`
+};
+
 async function handleStartReferral(message) {
   const m = /^\/start(?:@\w+)?\s+ref_([0-9a-zA-Z_]{1,30})\s*$/.exec(message.text || '');
 
@@ -3857,13 +3864,21 @@ async function handleStartReferral(message) {
     type: 'ref',
     ok: true,
     name: inviteeName,
-    reward: r.reward
+    reward: r.reward,
+    vipGranted: r.vipGranted,
+    vipDays: r.vipDays
   }));
 
   // Боттан хабарлама
   try {
     const lang = getLang(inviterId);
-    const text = (REF_TEXTS[lang] || REF_TEXTS.kk)(escapeHtml(inviteeName), r.reward);
+    let text = (REF_TEXTS[lang] || REF_TEXTS.kk)(escapeHtml(inviteeName), r.reward);
+
+    if (r.vipGranted) {
+      text += '\n\n' + (REF_VIP_TEXTS[lang] || REF_VIP_TEXTS.kk)(r.vipDays);
+    } else {
+      text += '\n👑 VIP: ' + r.vipProg + '/5';
+    }
 
     await telegramApi('sendMessage', {
       chat_id: inviterId,
