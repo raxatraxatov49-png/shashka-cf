@@ -45,6 +45,13 @@
 
     document.body.appendChild(nav);
 
+    // «Достарды шақырып койн жина» батырмасы Койн сатып алудың астына көшеді
+    var coinBuy = byId('btnCoinsBuy');
+    var refsBtn = byId('btnShopRefs');
+    if (coinBuy && refsBtn && coinBuy.parentNode && coinBuy.nextElementSibling !== refsBtn) {
+      coinBuy.parentNode.insertBefore(refsBtn, coinBuy.nextSibling);
+    }
+
     function activeScreen() {
       var el = document.querySelector('.screen.active');
       return el ? el.id : '';
@@ -67,6 +74,8 @@
       }
     }
 
+    var vipBase = '';
+
     function closeVipPage() {
       var x = byId('vipClose');
       if (x) x.click();
@@ -77,6 +86,7 @@
         if (vipOpen()) return;
         var vb = byId('btnVip');
         if (vb) {
+          vipBase = activeScreen();
           document.body.classList.add('vip-page');
           vb.click();
         }
@@ -144,6 +154,11 @@
         }, 350);
       }
 
+      // VIP беті ашық тұрғанда экран өзгерсе (мысалы, шақыру қабылданып ойын басталса), VIP бетін жабамыз
+      if (vipOpen() && document.body.classList.contains('vip-page') && scr && scr !== vipBase) {
+        closeVipPage();
+      }
+
       moveIndicator(current);
 
       var btns = nav.querySelectorAll('button');
@@ -152,6 +167,7 @@
       }
     }
 
+    window.__bnavSync = sync;
     setLabels();
     sync();
     setTimeout(function () { nav.classList.add('ready'); }, 80);
