@@ -3526,7 +3526,7 @@ function ratingLeft(ms) {
 }
 
 function ratingRow(p, own) {
-  const clickable = !own && p.username;
+  const clickable = false;
   const row = document.createElement(clickable ? 'button' : 'div');
 
   row.className = 'rrow' + (p.rank === 1 ? ' first' : '') + (own ? ' mine' : '');
@@ -3551,7 +3551,7 @@ function ratingRow(p, own) {
   b.textContent = p.name || '?';
   nm.append(b);
 
-  const sub = own ? tr('ratingYou') : (p.username ? '@' + p.username : '');
+  const sub = own ? tr('ratingYou') : '';
 
   if (sub) {
     const small = document.createElement('small');
@@ -3789,7 +3789,7 @@ function playerRow(p) {
   if (p.status === 'online') {
     small.className = 'on';
     small.textContent =
-      tr('playerOnlineLbl') + (p.username ? ' · @' + p.username : '');
+      tr('playerOnlineLbl') + (p.tgId ? ' · ID ' + p.tgId : '');
   } else if (p.status === 'game') {
     small.className = 'game';
     small.textContent = tr('playerInGame');
