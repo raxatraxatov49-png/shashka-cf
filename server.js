@@ -1103,8 +1103,7 @@ function rkPayload(userId) {
     steps: RK_WINS,
     list: all.slice(0, 100).map((x, i) => ({
       pos: i + 1,
-      name: x.e.name || 'Ойыншы',
-      username: x.e.username || '',
+      name: publicName(x.e.name, x.id),
       avatar: x.e.avatar || null,
       wins: x.w,
       tier: rkTier(x.w)
@@ -1137,8 +1136,7 @@ function grPayload(userId) {
     out[kind] = {
       list: board.slice(0, GR_TOP).map((x, i) => ({
         rank: i + 1,
-        name: x.e.name || 'Ойыншы',
-        username: x.e.username || '',
+        name: publicName(x.e.name, x.id),
         avatar: x.e.avatar || null,
         points: x.p,
         icon: RANKS[rankIndex(x.e.points || 0)].icon
@@ -1417,17 +1415,24 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// Көрсетілетін аты: тек Telegram аты (юзернейм көрсетілмейді)
+function publicName(name, id) {
+  const n = String(name || '').trim();
+
+  if (!n || n.startsWith('@')) {
+    return 'Ойыншы' + (id ? ' ' + String(id).slice(-4) : '');
+  }
+
+  return n;
+}
+
 function playerName(player) {
   if (!player) return 'Ойыншы';
-
-  if (player.username) {
-    return '@' + player.username;
-  }
 
   return [
     player.first_name,
     player.last_name
-  ].filter(Boolean).join(' ') || player.name || 'Ойыншы';
+  ].filter(Boolean).join(' ') || player.name || (player.username ? '@' + player.username : '') || 'Ойыншы';
 }
 
 function playerLink(player) {
@@ -1933,12 +1938,10 @@ function ensureRoomUser(player) {
   let u = users.get(id);
 
   if (!u) {
-    const name = player.username
-      ? '@' + player.username
-      : [
-          player.first_name,
-          player.last_name
-        ].filter(Boolean).join(' ') || 'Ойыншы';
+    const name = [
+      player.first_name,
+      player.last_name
+    ].filter(Boolean).join(' ') || (player.username ? '@' + player.username : '') || 'Ойыншы';
 
     u = {
       id,
@@ -6091,8 +6094,8 @@ function playersBaseList() {
 
     list.push({
       id,
-      name: p.name || p.username || ('Ойыншы ' + String(id).slice(-4)),
-      username: p.username || '',
+      name: publicName(p.name, id),
+      tgId: String(id),
       avatar: p.avatar || null,
       status: isOn ? (isBusy(u) ? 'game' : 'online') : 'offline',
       watch: Boolean(gm && !gm.waitingForOpponent && !gm.st.over),
@@ -6119,6 +6122,7 @@ function playersBaseList() {
 
 function playersPayload(viewerId) {
   const me = String(viewerId);
+  const viewerIsAdmin = isAdmin(me);
   const base = playersBaseList();
 
   // Осы ойыншы жіберген шақырулар
@@ -6146,7 +6150,12 @@ function playersPayload(viewerId) {
     const cool = useCool ? coolLeft(me, e.id) : 0;
     const sent = Boolean(sentTo && sentTo.has(e.id));
 
-    list.push(cool || sent ? Object.assign({}, e, { cool, sent }) : e);
+    const item = cool || sent ? Object.assign({}, e, { cool, sent }) : Object.assign({}, e);
+
+    // Telegram ID тек бот админдеріне көрінеді
+    if (!viewerIsAdmin) delete item.tgId;
+
+    list.push(item);
   }
 
   return {
