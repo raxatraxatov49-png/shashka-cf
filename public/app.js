@@ -1019,6 +1019,16 @@ const I18N = {
   }
 };
 
+Object.assign(I18N.kk, {"tourTile": "Турнир", "tourTileSub": "Жүлде койндары", "tourTitle": "Турнир", "tourNone": "Қазір ашық турнир жоқ", "tourNoneSub": "Жаңа турнир ашылғанда осы жерде көрінеді", "tourReg": "Тіркелу ашық", "tourLive": "Ойын жүріп жатыр", "tourJoin": "ТІРКЕЛУ", "tourJoined": "✓ ТІРКЕЛДІҢІЗ", "tourLeave": "Тіркелуден шығу", "tourFee": "Кіру", "tourFree": "Тегін", "tourStartAt": "Басталуы", "tourCount": "Тіркелді", "tourPrizes": "Жүлделер", "tourPlayers": "Қатысушылар", "tourReady": "ДАЙЫНМЫН", "tourReadyWait": "Қарсылас күтілуде…", "tourYourMatch": "Сіздің ойыныңыз", "tourLeftT": "Қалған уақыт", "tourOut": "Сіз турнирден шықтыңыз. Сетканы бақылай аласыз.", "tourWaitRound": "Келесі кезең күтілуде…", "tourPlaying": "Ойын жүріп жатыр", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Жартылай финал", "tourQuarter": "Ширек финал", "tourRoundN": "{n}-кезең", "tourErrCoins": "Койн жеткіліксіз", "tourErrFull": "Орын қалмады", "tourErrClosed": "Тіркелу жабық", "tourErrBusy": "Қарсылас дайын емес, күтіңіз", "tourBannerReg": "Тіркелу ашық · {c}/{s}", "tourBannerJoined": "Тіркелдіңіз · {c}/{s}", "tourBannerMy": "⚔️ Сіздің ойыныңыз дайын!", "tourBannerLive": "Турнир жүріп жатыр", "tourBannerOut": "Турнир жүріп жатыр · сіз шықтыңыз", "tourResult": "{p}-орын · +{c} 🪙", "tourLast": "Соңғы турнир", "tourWin1": "Чемпион", "tourWin2": "2-орын", "tourWin3": "3-орын", "tourByeLbl": "автоматты өту"});
+Object.assign(I18N.ru, {"tourTile": "Турнир", "tourTileSub": "Призовые монеты", "tourTitle": "Турнир", "tourNone": "Сейчас нет открытых турниров", "tourNoneSub": "Когда откроется новый турнир, он появится здесь", "tourReg": "Регистрация открыта", "tourLive": "Игры идут", "tourJoin": "УЧАСТВОВАТЬ", "tourJoined": "✓ ВЫ ЗАРЕГИСТРИРОВАНЫ", "tourLeave": "Отменить участие", "tourFee": "Взнос", "tourFree": "Бесплатно", "tourStartAt": "Начало", "tourCount": "Записано", "tourPrizes": "Призы", "tourPlayers": "Участники", "tourReady": "Я ГОТОВ", "tourReadyWait": "Ждём соперника…", "tourYourMatch": "Ваш матч", "tourLeftT": "Осталось времени", "tourOut": "Вы выбыли из турнира. Можно следить за сеткой.", "tourWaitRound": "Ждём следующий раунд…", "tourPlaying": "Идёт игра", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Полуфинал", "tourQuarter": "Четвертьфинал", "tourRoundN": "Раунд {n}", "tourErrCoins": "Недостаточно монет", "tourErrFull": "Мест нет", "tourErrClosed": "Регистрация закрыта", "tourErrBusy": "Соперник не готов, подождите", "tourBannerReg": "Регистрация открыта · {c}/{s}", "tourBannerJoined": "Вы записаны · {c}/{s}", "tourBannerMy": "⚔️ Ваш матч готов!", "tourBannerLive": "Турнир идёт", "tourBannerOut": "Турнир идёт · вы выбыли", "tourResult": "{p} место · +{c} 🪙", "tourLast": "Прошлый турнир", "tourWin1": "Чемпион", "tourWin2": "2 место", "tourWin3": "3 место", "tourByeLbl": "проход без игры"});
+Object.assign(I18N.uz, {"tourTile": "Turnir", "tourTileSub": "Sovrinli tangalar", "tourTitle": "Turnir", "tourNone": "Hozir ochiq turnir yo‘q", "tourNoneSub": "Yangi turnir ochilganda shu yerda ko‘rinadi", "tourReg": "Ro‘yxatdan o‘tish ochiq", "tourLive": "O‘yinlar ketmoqda", "tourJoin": "ISHTIROK ETISH", "tourJoined": "✓ RO‘YXATDASIZ", "tourLeave": "Ishtirokni bekor qilish", "tourFee": "Badal", "tourFree": "Bepul", "tourStartAt": "Boshlanishi", "tourCount": "Yozilgan", "tourPrizes": "Sovrinlar", "tourPlayers": "Ishtirokchilar", "tourReady": "TAYYORMAN", "tourReadyWait": "Raqib kutilmoqda…", "tourYourMatch": "Sizning o‘yiningiz", "tourLeftT": "Qolgan vaqt", "tourOut": "Siz turnirdan chiqdingiz. Setkani kuzatishingiz mumkin.", "tourWaitRound": "Keyingi bosqich kutilmoqda…", "tourPlaying": "O‘yin ketmoqda", "tourBracket": "Setka", "tourFinal": "Final", "tourSemi": "Yarim final", "tourQuarter": "Chorak final", "tourRoundN": "{n}-bosqich", "tourErrCoins": "Tanga yetarli emas", "tourErrFull": "Joy qolmadi", "tourErrClosed": "Ro‘yxat yopilgan", "tourErrBusy": "Raqib tayyor emas, kuting", "tourBannerReg": "Ro‘yxat ochiq · {c}/{s}", "tourBannerJoined": "Yozildingiz · {c}/{s}", "tourBannerMy": "⚔️ O‘yiningiz tayyor!", "tourBannerLive": "Turnir ketmoqda", "tourBannerOut": "Turnir ketmoqda · siz chiqdingiz", "tourResult": "{p}-o‘rin · +{c} 🪙", "tourLast": "Oxirgi turnir", "tourWin1": "Chempion", "tourWin2": "2-o‘rin", "tourWin3": "3-o‘rin", "tourByeLbl": "o‘yinsiz o‘tish"});
+Object.assign(I18N.kaa, {"tourTile": "Турнир", "tourTileSub": "Сыйлық койнлары", "tourTitle": "Турнир", "tourNone": "Ҳәзир ашық турнир жоқ", "tourNoneSub": "Жаңа турнир ашылғанда усы жерде көринеди", "tourReg": "Дизимнен өтиў ашық", "tourLive": "Ойынлар жүрип атыр", "tourJoin": "ҚАТНАСЫЎ", "tourJoined": "✓ ДИЗИМДЕСИЗ", "tourLeave": "Қатнасыўды бийкарлаў", "tourFee": "Кириў", "tourFree": "Тегин", "tourStartAt": "Басланыўы", "tourCount": "Жазылды", "tourPrizes": "Сыйлықлар", "tourPlayers": "Қатнасыўшылар", "tourReady": "ТАЯРМАН", "tourReadyWait": "Қарсылас күтилмекте…", "tourYourMatch": "Сизиң ойыныңыз", "tourLeftT": "Қалған ўақыт", "tourOut": "Сиз турнирден шықтыңыз. Сеткаға қарап турыўға болады.", "tourWaitRound": "Кейинги кезең күтилмекте…", "tourPlaying": "Ойын жүрип атыр", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Ярым финал", "tourQuarter": "Ширек финал", "tourRoundN": "{n}-кезең", "tourErrCoins": "Койн жетерли емес", "tourErrFull": "Орын қалмады", "tourErrClosed": "Дизимнен өтиў жабық", "tourErrBusy": "Қарсылас таяр емес, күтиң", "tourBannerReg": "Дизимнен өтиў ашық · {c}/{s}", "tourBannerJoined": "Жазылдыңыз · {c}/{s}", "tourBannerMy": "⚔️ Ойыныңыз таяр!", "tourBannerLive": "Турнир жүрип атыр", "tourBannerOut": "Турнир жүрип атыр · сиз шықтыңыз", "tourResult": "{p}-орын · +{c} 🪙", "tourLast": "Соңғы турнир", "tourWin1": "Чемпион", "tourWin2": "2-орын", "tourWin3": "3-орын", "tourByeLbl": "ойынсыз өтиў"});
+
+Object.assign(I18N.kk, {"tourJoinPay": "⭐ {f} ⭐ ТӨЛЕП ҚОСЫЛУ", "tourLeaveRefund": "Шығу (Stars қайтарылады)", "tourPool": "Банк және жүлде", "tourGiftNow": "🎁 {g} ⭐ подарок", "tourGiftLeft": "Қалған {l} ⭐ бот балансында қалады", "tourGiftNone": "Банк ең арзан подарокқа жетпесе, жеңімпазға 1 000 койн беріледі", "tourPrizeFree": "🥇 1-орын: 1 000 🪙", "tourPrizeFreeSub": "Тек жеңімпазға беріледі, басқа жүлде жоқ.", "tourGiftSent": "🎁 Жеңімпазға {g} ⭐ подарок жіберілді", "tourGiftCoins": "🪙 Жеңімпазға 1 000 койн берілді", "tourGiftPending": "🎁 Подарок жіберілуде…", "tourRulesTitle": "Ереже", "tourErrRefund": "Stars қайтарылмады, кейін қайталап көріңіз", "tourResultGift": "{p}-орын · 🎁 {g} ⭐", "tourRulesFree": "• Олимпиадалық жүйе: жеңген келесі кезеңге өтеді.\n• Әр ойынға «Дайынмын» басуға 3 минут беріледі.\n• Тең ойын қайта ойналады.\n• Тегін турнир: жүлде тек 1-орынға.", "tourRulesStars": "• Олимпиадалық жүйе: жеңген келесі кезеңге өтеді.\n• Әр ойынға «Дайынмын» басуға 3 минут беріледі.\n• Тең ойын қайта ойналады.\n• Кіру ақысы Telegram Stars-пен төленеді, барлығы банкке жиналады.\n• Жеңімпазға банкке сыятын ең қымбат подарокты бот өзі жібереді, қалғаны ботта қалады.\n• Турнир басталмай шықсаңыз немесе бас тартылса, Stars қайтарылады.\n• Подарок келуі үшін ботпен /start басқан болуыңыз керек."});
+Object.assign(I18N.ru, {"tourJoinPay": "⭐ ОПЛАТИТЬ {f} ⭐ И УЧАСТВОВАТЬ", "tourLeaveRefund": "Выйти (Stars вернутся)", "tourPool": "Банк и приз", "tourGiftNow": "🎁 Подарок {g} ⭐", "tourGiftLeft": "Остаток {l} ⭐ останется у бота", "tourGiftNone": "Если банка не хватает на подарок, победитель получит 1 000 монет", "tourPrizeFree": "🥇 1 место: 1 000 🪙", "tourPrizeFreeSub": "Только победителю, других призов нет.", "tourGiftSent": "🎁 Победителю отправлен подарок {g} ⭐", "tourGiftCoins": "🪙 Победителю начислено 1 000 монет", "tourGiftPending": "🎁 Подарок отправляется…", "tourRulesTitle": "Правила", "tourErrRefund": "Не удалось вернуть Stars, попробуйте позже", "tourResultGift": "{p} место · 🎁 {g} ⭐", "tourRulesFree": "• Олимпийская система: победитель проходит дальше.\n• На кнопку «Я готов» даётся 3 минуты.\n• Ничья переигрывается.\n• Бесплатный турнир: приз только за 1 место.", "tourRulesStars": "• Олимпийская система: победитель проходит дальше.\n• На кнопку «Я готов» даётся 3 минуты.\n• Ничья переигрывается.\n• Взнос оплачивается Telegram Stars, всё собирается в банк.\n• Победителю бот сам отправляет самый дорогой подарок, который помещается в банк, остаток остаётся у бота.\n• Если выйдете до старта или турнир отменят, Stars вернутся.\n• Чтобы подарок дошёл, нужно хотя бы раз нажать /start у бота."});
+Object.assign(I18N.uz, {"tourJoinPay": "⭐ {f} ⭐ TO‘LAB QO‘SHILISH", "tourLeaveRefund": "Chiqish (Stars qaytariladi)", "tourPool": "Bank va sovrin", "tourGiftNow": "🎁 {g} ⭐ sovg‘a", "tourGiftLeft": "Qolgan {l} ⭐ botda qoladi", "tourGiftNone": "Bank sovg‘aga yetmasa, g‘olib 1 000 tanga oladi", "tourPrizeFree": "🥇 1-o‘rin: 1 000 🪙", "tourPrizeFreeSub": "Faqat g‘olibga beriladi, boshqa sovrin yo‘q.", "tourGiftSent": "🎁 G‘olibga {g} ⭐ sovg‘a yuborildi", "tourGiftCoins": "🪙 G‘olibga 1 000 tanga berildi", "tourGiftPending": "🎁 Sovg‘a yuborilmoqda…", "tourRulesTitle": "Qoidalar", "tourErrRefund": "Stars qaytarilmadi, keyinroq urinib ko‘ring", "tourResultGift": "{p}-o‘rin · 🎁 {g} ⭐", "tourRulesFree": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Bepul turnir: sovrin faqat 1-o‘ringa.", "tourRulesStars": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Kirish to‘lovi Telegram Stars bilan to‘lanadi, hammasi bankka yig‘iladi.\n• G‘olibga bank yetadigan eng qimmat sovg‘ani bot o‘zi yuboradi, qolgani botda qoladi.\n• Turnir boshlanmasdan chiqsangiz yoki bekor qilinsa, Stars qaytariladi.\n• Sovg‘a yetib borishi uchun bot bilan kamida bir marta /start bosgan bo‘lishingiz kerak."});
+Object.assign(I18N.kaa, {"tourJoinPay": "⭐ {f} ⭐ ТӨЛЕП ҚОСЫЛЫЎ", "tourLeaveRefund": "Шығыў (Stars қайтарылады)", "tourPool": "Банк ҳәм сыйлық", "tourGiftNow": "🎁 {g} ⭐ подарок", "tourGiftLeft": "Қалған {l} ⭐ бот балансында қалады", "tourGiftNone": "Банк подарокқа жетпесе, жеңимпазға 1 000 койн бериледи", "tourPrizeFree": "🥇 1-орын: 1 000 🪙", "tourPrizeFreeSub": "Тек жеңимпазға бериледи, басқа сыйлық жоқ.", "tourGiftSent": "🎁 Жеңимпазға {g} ⭐ подарок жиберилди", "tourGiftCoins": "🪙 Жеңимпазға 1 000 койн берилди", "tourGiftPending": "🎁 Подарок жиберилмекте…", "tourRulesTitle": "Ереже", "tourErrRefund": "Stars қайтарылмады, кейинирек қайталап көриң", "tourResultGift": "{p}-орын · 🎁 {g} ⭐", "tourRulesFree": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Тегин турнир: сыйлық тек 1-орынға.", "tourRulesStars": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Кириў ақысы Telegram Stars пенен төленеди, барлығы банкке жыйналады.\n• Жеңимпазға банкке сыйатуғын ең қымбат подарокты бот өзи жибереди, қалғаны ботта қалады.\n• Турнир басланбай шықсаңыз яки бийкар етилсе, Stars қайтарылады.\n• Подарок келиўи ушын ботты бир рет ашып, /start басқан болыўыңыз керек."});
+
 const tr = (key, vars) => {
   let s = (I18N[LANG] && I18N[LANG][key]);
 
@@ -1588,6 +1598,7 @@ function show(id) {
   });
 
   if (id !== 'players') stopPlayersPoll();
+  if (id !== 'tour' && typeof stopTourPoll === 'function') stopTourPoll();
   if (id !== 'game') closeRtc();
 
   if (tg) {
@@ -1596,7 +1607,7 @@ function show(id) {
         tg.BackButton.show();
         tg.enableClosingConfirmation();
       } else {
-        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins'
+        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins' || id === 'tour'
           ? tg.BackButton.show()
           : tg.BackButton.hide();
         tg.disableClosingConfirmation();
@@ -1618,7 +1629,8 @@ if (tg) {
         $('refs').classList.contains('active') ||
         $('rating').classList.contains('active') ||
         ($('rank') && $('rank').classList.contains('active')) ||
-        $('players').classList.contains('active')
+        $('players').classList.contains('active') ||
+        $('tour').classList.contains('active')
       ) {
         show('menu');
         return;
@@ -1748,6 +1760,15 @@ function onMsg(m) {
 
       $('sheetInvite').classList.add('hidden');
       haptic('heavy');
+      break;
+
+    case 'tour_lite':
+    case 'tour':
+      onTour(m);
+      break;
+
+    case 'tour_err':
+      tourToast(tr({ coins: 'tourErrCoins', full: 'tourErrFull', closed: 'tourErrClosed', opp_busy: 'tourErrBusy', refund: 'tourErrRefund' }[m.code] || 'tourErrClosed'));
       break;
 
     case 'players':
@@ -3962,6 +3983,312 @@ $('btnPinNo').onclick = () => {
   hideIncoming();
 };
 
+
+/* ---------- ТУРНИР ---------- */
+
+S.tour = { lite: null, full: null, poll: null, tick: null, until: 0, hot: false };
+
+function tEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function tourToast(text) {
+  let t = $('tourToast');
+
+  if (!t) {
+    t = tEl('div', 'ttoast');
+    t.id = 'tourToast';
+    document.body.appendChild(t);
+  }
+
+  t.textContent = text;
+  t.classList.add('on');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+function tourSeen(id) {
+  try { return localStorage.getItem('shashka_tour_seen') === String(id); } catch (e) { return false; }
+}
+
+function tourMarkSeen(id) {
+  try { localStorage.setItem('shashka_tour_seen', String(id)); } catch (e) {}
+}
+
+function onTour(m) {
+  const wasHot = S.tour.hot;
+
+  S.tour.lite = m;
+  if (m.t === 'tour') S.tour.full = m;
+
+  S.tour.hot = Boolean(m.on && m.status === 'live' && m.alive && m.myMatch && !m.myReady && !m.myPlaying);
+
+  if (S.tour.hot && !wasHot) {
+    haptic('heavy');
+    if (!$('tour').classList.contains('active')) tourToast(tr('tourBannerMy'));
+  }
+
+  tourBanner();
+
+  if ($('tour').classList.contains('active')) {
+    if (m.t === 'tour') renderTour();
+    else send({ t: 'tour_get' });
+  }
+}
+
+function tourBanner() {
+  const l = S.tour.lite;
+  const sub = $('tourTileSub');
+  const tile = $('btnTour');
+  let text = tr('tourTileSub');
+
+  if (l && l.on) {
+    if (l.status === 'reg') {
+      text = (l.kind === 'stars' ? '⭐ ' : '') + tr(l.joined ? 'tourBannerJoined' : 'tourBannerReg', { c: l.count, s: l.size });
+    } else if (S.tour.hot) {
+      text = tr('tourBannerMy');
+    } else if (l.alive) {
+      text = tr('tourBannerLive');
+    } else {
+      text = tr('tourBannerOut');
+    }
+  } else if (l && l.last && l.last.place && !tourSeen(l.last.id)) {
+    text = l.last.gift
+      ? tr('tourResultGift', { p: l.last.place, g: l.last.gift })
+      : l.last.coins
+        ? tr('tourResult', { p: l.last.place, c: l.last.coins })
+        : '#' + l.last.place;
+  }
+
+  if (sub) sub.textContent = text;
+  if (tile) tile.classList.toggle('hot', S.tour.hot);
+}
+
+function tourRoundLabel(i, n) {
+  if (n === 1) return tr('tourFinal');
+  if (n === 2) return tr('tourSemi');
+  if (n === 4) return tr('tourQuarter');
+  return tr('tourRoundN', { n: i + 1 });
+}
+
+function renderTour() {
+  const body = $('tourBody');
+  const f = S.tour.full;
+
+  if (!body || !f) return;
+
+  body.textContent = '';
+
+  const me = S.me ? S.me.id : null;
+
+  if (!f.on) {
+    const c = tEl('div', 'tcard');
+    c.appendChild(tEl('h2', '', '🏆 ' + tr('tourNone')));
+    c.appendChild(tEl('p', 'tnote', tr('tourNoneSub')));
+    body.appendChild(c);
+  } else {
+    const c = tEl('div', 'tcard');
+    c.appendChild(tEl('span', 'tbadge' + (f.status === 'live' ? ' live' : ''), '● ' + tr(f.status === 'live' ? 'tourLive' : 'tourReg')));
+    c.appendChild(tEl('h2', '', f.name));
+
+    const row = tEl('div', 'trow');
+    [
+      [f.count + ' / ' + f.size, tr('tourCount')],
+      [f.startText || '—', tr('tourStartAt')],
+      [f.kind === 'stars' ? f.fee + ' ⭐' : tr('tourFree'), tr('tourFee')]
+    ].forEach(([v, k]) => {
+      const s = tEl('div', 'tst');
+      s.appendChild(tEl('b', '', v));
+      s.appendChild(tEl('small', '', k));
+      row.appendChild(s);
+    });
+    c.appendChild(row);
+
+    if (f.status === 'reg') {
+      const bar = tEl('div', 'tbar');
+      const fill = tEl('i');
+      fill.style.width = Math.min(100, (f.count / f.size) * 100) + '%';
+      bar.appendChild(fill);
+      c.appendChild(bar);
+
+      if (f.joined) {
+        const ok = tEl('button', 'tbtn ok', tr('tourJoined'));
+        ok.type = 'button';
+        ok.disabled = true;
+        c.appendChild(ok);
+
+        const lv = tEl('button', 'tbtn sec', tr(f.kind === 'stars' ? 'tourLeaveRefund' : 'tourLeave'));
+        lv.type = 'button';
+        lv.onclick = () => send({ t: 'tour_leave' });
+        c.appendChild(lv);
+      } else {
+        const j = tEl('button', 'tbtn', tr(f.kind === 'stars' ? 'tourJoinPay' : 'tourJoin', { f: f.fee }));
+        j.type = 'button';
+        j.disabled = f.count >= f.size;
+        j.onclick = () => { haptic('medium'); send({ t: 'tour_join' }); };
+        c.appendChild(j);
+      }
+    } else if (f.my) {
+      c.appendChild(tEl('div', 'tsec', tr('tourYourMatch')));
+
+      const vs = tEl('div', 'tvs');
+      vs.appendChild(tEl('span', '', S.me ? S.me.name : ''));
+      vs.appendChild(tEl('small', '', 'VS'));
+      vs.appendChild(tEl('span', '', f.my.opp.name));
+      c.appendChild(vs);
+
+      if (f.my.playing) {
+        c.appendChild(tEl('p', 'tnote', tr('tourPlaying')));
+      } else if (!f.my.ready) {
+        const r = tEl('button', 'tbtn green', tr('tourReady'));
+        r.type = 'button';
+        r.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); };
+        c.appendChild(r);
+      } else {
+        c.appendChild(tEl('p', 'tnote', tr('tourReadyWait')));
+      }
+
+      S.tour.until = Date.now() + (f.my.left || 0);
+      const left = tEl('p', 'tnote');
+      left.id = 'tourLeft';
+      c.appendChild(left);
+      tourTick();
+    } else if (f.alive) {
+      c.appendChild(tEl('p', 'tnote', tr('tourWaitRound')));
+    } else {
+      c.appendChild(tEl('p', 'tnote', tr('tourOut')));
+    }
+
+    body.appendChild(c);
+
+    if (f.kind === 'stars') {
+      body.appendChild(tEl('div', 'tsec', tr('tourPool')));
+      const bx = tEl('div', 'tbox');
+      bx.appendChild(tEl('div', 'tpool', (f.pool || 0) + ' ⭐'));
+
+      const tiers = tEl('div', 'ttiers');
+      (f.tiers || []).forEach((x) => tiers.appendChild(tEl('div', 'ttr' + (x === f.gift ? ' on' : ''), x + ' ⭐')));
+      bx.appendChild(tiers);
+
+      const w = tEl('div', 'twin');
+      if (f.gift) {
+        w.appendChild(tEl('b', '', tr('tourGiftNow', { g: f.gift })));
+        w.appendChild(tEl('small', '', tr('tourGiftLeft', { l: f.pool - f.gift })));
+      } else {
+        w.appendChild(tEl('small', '', tr('tourGiftNone')));
+      }
+      bx.appendChild(w);
+      body.appendChild(bx);
+    } else {
+      body.appendChild(tEl('div', 'tsec', tr('tourPrizes')));
+      const w = tEl('div', 'twin');
+      w.appendChild(tEl('b', '', tr('tourPrizeFree')));
+      w.appendChild(tEl('small', '', tr('tourPrizeFreeSub')));
+      body.appendChild(w);
+    }
+
+    body.appendChild(tEl('div', 'tsec', tr('tourRulesTitle')));
+    body.appendChild(tEl('div', 'tbox trules', tr(f.kind === 'stars' ? 'tourRulesStars' : 'tourRulesFree')));
+
+    if (f.status === 'reg' && f.players && f.players.length) {
+      body.appendChild(tEl('div', 'tsec', tr('tourPlayers') + ' · ' + f.count));
+      const ch = tEl('div', 'tchips');
+      f.players.forEach((n) => ch.appendChild(tEl('span', 'tchip', n)));
+      body.appendChild(ch);
+    }
+
+    if (f.status === 'live' && f.rounds) {
+      body.appendChild(tEl('div', 'tsec', tr('tourBracket')));
+      const br = tEl('div', 'tbr');
+
+      f.rounds.forEach((round, ri) => {
+        const col = tEl('div', 'tcol');
+        col.appendChild(tEl('h4', '', tourRoundLabel(ri, round.length)));
+
+        round.forEach((m) => {
+          const box = tEl('div', 'tm' + (m.play ? ' play' : ''));
+
+          [m.a, m.b].forEach((p) => {
+            let cls = 'tp';
+
+            if (!p) cls += ' q';
+            else {
+              if (m.w) cls += m.w === p.id ? ' w' : ' l';
+              if (p.id === me) cls += ' me';
+            }
+
+            box.appendChild(tEl('div', cls, p ? p.name : tr('tourByeLbl')));
+          });
+
+          col.appendChild(box);
+        });
+
+        br.appendChild(col);
+      });
+
+      body.appendChild(br);
+    }
+  }
+
+  if (!f.on && f.lastInfo) {
+    const l = f.lastInfo;
+    const c = tEl('div', 'tcard');
+    c.appendChild(tEl('span', 'tbadge live', tr('tourLast')));
+    c.appendChild(tEl('h2', '', l.name));
+    c.appendChild(tEl('p', 'tnote', '🥇 ' + l.first + '  ·  🥈 ' + l.second));
+    if (l.third && l.third.length) c.appendChild(tEl('p', 'tnote', '🥉 ' + l.third.join(', ')));
+
+    if (l.kind === 'stars' && l.gift) {
+      c.appendChild(tEl('p', 'tnote', tr(
+        l.gift.status === 'sent' ? 'tourGiftSent' : l.gift.status === 'coins' ? 'tourGiftCoins' : 'tourGiftPending',
+        { g: l.gift.stars }
+      )));
+    } else if (l.kind !== 'stars') {
+      c.appendChild(tEl('p', 'tnote', tr('tourPrizeFree')));
+    }
+    body.appendChild(c);
+  }
+}
+
+function tourTick() {
+  const el = $('tourLeft');
+
+  if (!el) return;
+
+  const s = Math.max(0, Math.round((S.tour.until - Date.now()) / 1000));
+  el.textContent = tr('tourLeftT') + ': ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function stopTourPoll() {
+  clearInterval(S.tour.poll);
+  clearInterval(S.tour.tick);
+  S.tour.poll = S.tour.tick = null;
+}
+
+function openTour() {
+  const l = S.tour.lite;
+
+  if (l && !l.on && l.last) tourMarkSeen(l.last.id);
+
+  send({ t: 'tour_get' });
+
+  if (S.tour.full) renderTour();
+
+  show('tour');
+  tourBanner();
+
+  stopTourPoll();
+  S.tour.poll = setInterval(() => {
+    if (!document.hidden) send({ t: 'tour_get' });
+  }, 7000);
+  S.tour.tick = setInterval(tourTick, 1000);
+}
+
+$('btnTour').onclick = openTour;
+
 /* ---------- ДАУЫСТЫҚ БАЙЛАНЫС (WebRTC) ---------- */
 
 const RTC_CFG = {
@@ -4261,7 +4588,7 @@ function openInvoice(url) {
     if (tg && tg.openInvoice) {
       tg.openInvoice(url, (status) => {
         if (status === 'failed') ptoast(tr('payFail'));
-        if (status === 'paid') send({ t: 'shop_get' });
+        if (status === 'paid') { send({ t: 'shop_get' }); send({ t: 'tour_get' }); }
       });
       return;
     }
