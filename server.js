@@ -5910,6 +5910,27 @@ async function handlePreCheckout(q) {
 
 function handleSuccessfulPayment(message) {
   const p = message.successful_payment;
+
+  // Турнир төлемі: тіркелу толып/жабылып қалса да Stars жоғалмай қайтарылады
+  const tp = /^tour:([^:]+):(\d+)$/.exec((p && p.invoice_payload) || '');
+
+  if (tp && message.from && tp[1] === String(message.from.id) && p.currency === 'XTR') {
+    const cid = p.telegram_payment_charge_id;
+
+    if (cid) {
+      if (payData.charges.includes(cid)) return;
+
+      payData.charges.push(cid);
+
+      if (payData.charges.length > 500) payData.charges.shift();
+
+      savePay();
+    }
+
+    tournament.onPaid(tp[1], Number(tp[2]), cid, p.total_amount);
+    return;
+  }
+
   const o = parseOrder(p && p.invoice_payload);
 
   if (
