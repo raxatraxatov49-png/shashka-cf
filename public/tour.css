@@ -67,3 +67,43 @@ body #menu .tile-tour.hot{border-color:rgba(89,217,138,.7) !important;background
 .twin{padding:13px;border-radius:18px;text-align:center;background:linear-gradient(135deg,rgba(255,211,106,.14),rgba(242,169,59,.06));border:1px solid rgba(255,211,106,.4)}
 .twin b{display:block;font-size:17px;color:#fff;margin-bottom:3px}.twin small{color:rgba(230,226,255,.75);font-size:12.5px;line-height:1.4}
 .trules{white-space:pre-line;font-size:13.5px;line-height:1.6;color:rgba(230,226,255,.85)}
+
+/* Жоғарыдан түсетін хабарландыру */
+.tnotice{position:fixed;left:12px;right:12px;z-index:60;max-width:416px;margin:0 auto;
+  top:calc(env(safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px) + 10px);
+  display:flex;align-items:center;gap:10px;padding:12px 12px 12px 14px;border-radius:22px;color:#fff;
+  background:linear-gradient(135deg,rgba(66,52,140,.96),rgba(28,24,70,.96));
+  border:1px solid rgba(255,211,106,.55);box-shadow:0 16px 40px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06) inset;
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  transform:translateY(-140%);opacity:0;transition:transform .45s cubic-bezier(.2,1,.3,1),opacity .3s}
+.tnotice.on{transform:none;opacity:1}
+.tnotice.hid{display:none}
+.tn-t{flex:1;min-width:0}.tn-t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tn-t small{display:block;font-size:12.5px;color:rgba(255,255,255,.78);margin-top:2px}
+.tn-go{flex:none;padding:10px 14px;border-radius:14px;border:0;font-weight:800;font-size:13.5px;color:#3a2808;background:linear-gradient(135deg,#ffd36a,#f2a93b)}
+.tn-x{flex:none;width:30px;height:30px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:13px}
+
+/* Қойындылар */
+.ttabs{display:flex;padding:4px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);margin-bottom:2px}
+.ttabs button{flex:1;padding:10px;border-radius:12px;border:0;background:none;color:#9aa8c4;font-weight:700;font-size:13.5px}
+.ttabs button.on{background:rgba(255,255,255,.14);color:#fff}
+.tsmall{font-size:12px;opacity:.75}
+/* Сетка (сызықтармен) */
+.tb-wrap{overflow-x:auto;padding:4px 14px 12px 4px;-webkit-overflow-scrolling:touch}
+.tb-cols{display:flex;gap:28px;align-items:stretch;min-width:min-content}
+.tb-col{display:flex;flex-direction:column;width:150px;flex:none}
+.tb-col h4{margin:0 0 6px;text-align:center;font-size:12px;color:#9aa8c4;font-weight:700}
+.tb-list{flex:1;display:flex;flex-direction:column}
+.tb-pair{flex:1;display:flex;flex-direction:column;position:relative}
+.tb-pair::after{content:"";position:absolute;right:-15px;top:25%;bottom:25%;border-right:2px solid rgba(255,255,255,.22)}
+.tb-slot{flex:1;display:flex;align-items:center;padding:6px 0;min-height:78px}
+.tb-m{position:relative;width:100%;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.tb-m.pl{border-color:rgba(89,217,138,.7)}
+.tb-m::after{content:"";position:absolute;left:100%;top:50%;width:14px;border-top:2px solid rgba(255,255,255,.22)}
+.tb-m.last::after{display:none}
+.tb-m.left::before{content:"";position:absolute;right:100%;top:50%;width:14px;border-top:2px solid rgba(255,255,255,.22)}
+.tb-p{padding:9px 10px;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfd6e6}
+.tb-p+.tb-p{border-top:1px solid rgba(255,255,255,.08)}
+.tb-p.w{color:#fff;font-weight:700;background:rgba(89,217,138,.2)}
+.tb-p.l{opacity:.4;text-decoration:line-through}
+.tb-p.me{color:#ffd36a}.tb-p.q{color:#667}
