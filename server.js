@@ -8,6 +8,7 @@ const { WebSocketServer } = require('./cf/ws');
 const G = require('./lib/game');
 const { verifyInitData } = require('./lib/telegram');
 const { createShop } = require('./lib/shop');
+const { createTournament } = require('./lib/tournament');
 const { t: tx, normLang, detectLang, DEFAULT_LANG } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -51,6 +52,7 @@ const REDIS_PREFIX = process.env.REDIS_PREFIX || 'shashka:';
 
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
+const TOUR_FILE = path.join(DATA_DIR, 'tournament.json');
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
@@ -207,7 +209,8 @@ const PERMISSIONS = {
   admin_manage: '👑 Админдерді басқару',
   coins: '🪙 Койн беру',
   vip: '👑 VIP беру',
-  user_ban: '⛔ Пайдаланушыны блоктау'
+  user_ban: '⛔ Пайдаланушыны блоктау',
+  tournament: '🏆 Турнирлер'
 };
 
 const DEFAULT_PERMISSIONS = [
@@ -1168,8 +1171,10 @@ async function initStorage() {
       const unreachableData = await storeLoad('unreachable', UNREACHABLE_FILE, []);
       const profileData = await storeLoad('profiles', PROFILES_FILE, {});
       const payRaw = await storeLoad('payments', PAY_FILE, null);
+      const tourData = await storeLoad('tournament', TOUR_FILE, null);
 
       shop = createShop(shopData, saveShop);
+      tournament.load(tourData);
 
       admins.clear();
       for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
@@ -2256,6 +2261,13 @@ function adminKeyboard(adminId) {
     }]);
   }
 
+  if (hasPermission(adminId, 'tournament')) {
+    rows.push([{
+      text: '🏆 Турнирлер',
+      callback_data: 'adm:tour'
+    }]);
+  }
+
   if (hasPermission(adminId, 'user_ban')) {
     rows.push([{
       text: '⛔ Пайдаланушыны блоктау',
@@ -2426,6 +2438,8 @@ function requiredPermission(data) {
   ) return 'groups';
 
   if (data === 'adm:games') return 'games';
+
+  if (data.startsWith('adm:tour')) return 'tournament';
 
   if (data.startsWith('adm:coins')) return 'coins';
 
@@ -2674,6 +2688,12 @@ async function handleAdminCallback(query) {
     await answerCallback(query.id, 'Болдырылмады.');
 
     return true;
+  }
+
+  /* Турнирлер */
+
+  if (data.startsWith('adm:tour')) {
+    return tournament.adminCallback(query, { chatId, messageId });
   }
 
   /* Койн беру */
@@ -4182,7 +4202,11 @@ async function handleTelegramWebhook(req, res) {
           coins_amount: 'coins',
           vip_id: 'vip',
           vip_days: 'vip',
-          ban_input: 'user_ban'
+          ban_input: 'user_ban',
+          tour_name: 'tournament',
+          tour_size: 'tournament',
+          tour_time: 'tournament',
+          tour_none: 'tournament'
         }[action.action];
 
         if (needPerm && !hasPermission(adminId, needPerm)) {
@@ -4192,6 +4216,13 @@ async function handleTelegramWebhook(req, res) {
             chat_id: message.chat.id,
             text: '⛔ Бұл әрекетке рұқсатыңыз жоқ.'
           });
+
+          res.writeHead(200);
+          return res.end('ok');
+        }
+
+        if (action.action.startsWith('tour_')) {
+          await tournament.adminText(message, action, adminId);
 
           res.writeHead(200);
           return res.end('ok');
@@ -5238,6 +5269,8 @@ function finish(g, winner, reason) {
   // Кездейсоқ қарсылас: тек толық ойнап жеңсе ұпай беріледі
   grRecordGame(g, winner, reason);
 
+  try { tournament.onFinish(g, winner, reason); } catch (e) { console.error('Турнир қатесі:', e.message); }
+
   if (g.groupInfo) {
     const room = groupRooms.get(g.groupInfo.code);
     const chatId = g.groupInfo.chatId;
@@ -5827,6 +5860,16 @@ function parseOrder(payload) {
       : null;
   }
 
+  const tp = /^tour:([^:]+):(\d+)$/.exec(payload || '');
+
+  if (tp) {
+    const fee = tournament.joinFee(tp[1], Number(tp[2]));
+
+    return fee
+      ? { kind: 'tour', id: tp[1], tid: Number(tp[2]), amount: fee }
+      : null;
+  }
+
   const v = /^vip:(.+)$/.exec(payload || '');
 
   if (v) {
@@ -5892,6 +5935,11 @@ function handleSuccessfulPayment(message) {
     if (payData.charges.length > 500) payData.charges.shift();
 
     savePay();
+  }
+
+  if (o.kind === 'tour') {
+    tournament.onPaid(id, o.tid, chargeId, p.total_amount);
+    return;
   }
 
   if (o.kind === 'vip') {
@@ -6338,6 +6386,33 @@ function answerPInvite(u, fromId, accept) {
   startGame(from, u);
 }
 
+/* ---------- Турнир ---------- */
+
+const tournament = createTournament({
+  users,
+  games,
+  profiles,
+  shop: {
+    get: (...a) => shop.get(...a),
+    addCoins: (...a) => shop.addCoins(...a)
+  },
+  startGame,
+  send,
+  isOnline,
+  isBusy,
+  isBanned,
+  publicName,
+  saveData: d => storeSave('tournament', TOUR_FILE, d),
+  telegramApi,
+  editAdminMessage,
+  answerCallback,
+  adminActions,
+  escapeHtml,
+  getLang,
+  miniAppUrl: MINI_APP_URL,
+  ownerId: OWNER_ID
+});
+
 /* ---------- WebSocket хабарламалары ---------- */
 
 function handle(u, m) {
@@ -6435,6 +6510,12 @@ function handle(u, m) {
 
       return send(u, shopMsg(u.id, { type: 'dnd', on }));
     }
+
+    case 'tour_get':
+    case 'tour_join':
+    case 'tour_leave':
+    case 'tour_ready':
+      return tournament.ws(u, m);
 
     case 'players_get':
       return send(u, playersPayload(u.id));
@@ -6819,6 +6900,7 @@ function onAuth(ws, m) {
   });
 
   send(u, shopMsg(u.id));
+  send(u, tournament.lite(u.id));
 
   {
     const icode = userInvites.get(u.id);
