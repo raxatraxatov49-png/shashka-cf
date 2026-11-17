@@ -4389,16 +4389,16 @@ function openTour() {
 
 /* ---------- Мини-app ашылғанда турнир хабарландыруы ---------- */
 
-const TOUR_NOTICE_MS = 30 * 60 * 1000;   // қайта көрсету аралығы: 30 минут
 S.tour.noticeDone = false;
 S.tour.noticeTimer = null;
 
 function tourNoticeMaybe(m) {
-  // Тек мини-app ашылғандағы бірінші жаңартуда тексереміз
-  if (S.tour.noticeDone || m.t !== 'tour_lite') return;
+  // Мини-app әр ашылғанда бір рет тексереміз
+  if (S.tour.noticeDone) return;
   S.tour.noticeDone = true;
 
-  if (!m.on || m.status !== 'reg') return;
+  // Тек тіркелу ашық және ойыншы әлі тіркелмеген болса көрсетеміз
+  if (!m.on || m.status !== 'reg' || m.joined) return;
 
   tryTourNotice(0);
 }
@@ -4407,7 +4407,8 @@ function tryTourNotice(n) {
   const m = S.tour.lite;
   const menu = $('menu');
 
-  if (!m || !m.on || m.status !== 'reg') return;
+  // Осы аралықта тіркеліп қойса немесе турнир жабылса, көрсетпейміз
+  if (!m || !m.on || m.status !== 'reg' || m.joined) return;
 
   // Меню әлі көрінбесе, сәл кейін қайта тексереміз
   if (!menu || !menu.classList.contains('active')) {
@@ -4415,21 +4416,26 @@ function tryTourNotice(n) {
     return;
   }
 
-  let last = null;
-
-  try { last = JSON.parse(localStorage.getItem('shashka_tour_notice') || 'null'); } catch (e) {}
-
-  // Жаңа турнир болса немесе соңғы көрсетуден 30 минут өтсе көрсетеміз
-  const fresh = !last || last.id !== m.id || Date.now() - last.at >= TOUR_NOTICE_MS;
-
-  if (!fresh) return;
-
-  try {
-    localStorage.setItem('shashka_tour_notice', JSON.stringify({ id: m.id, at: Date.now() }));
-  } catch (e) {}
-
-  setTimeout(() => showTourNotice(S.tour.lite || m), 500);
+  setTimeout(() => {
+    const l = S.tour.lite;
+    if (l && l.on && l.status === 'reg' && !l.joined) showTourNotice(l);
+  }, 500);
 }
+
+// Қолданба фонға кетіп қайта ашылса, жаңа ашылу ретінде есептеледі
+let tourHiddenAt = 0;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    tourHiddenAt = Date.now();
+    return;
+  }
+
+  if (tourHiddenAt && Date.now() - tourHiddenAt > 5000) {
+    S.tour.noticeDone = false;
+    send({ t: 'tour_get' });
+  }
+});
 
 function hideTourNotice() {
   const n = $('tourNotice');
