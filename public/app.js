@@ -1029,6 +1029,16 @@ Object.assign(I18N.ru, {"tourJoinPay": "⭐ ОПЛАТИТЬ {f} ⭐ И УЧАС
 Object.assign(I18N.uz, {"tourJoinPay": "⭐ {f} ⭐ TO‘LAB QO‘SHILISH", "tourLeaveRefund": "Chiqish (Stars qaytariladi)", "tourPool": "Bank va sovrin", "tourGiftNow": "🎁 {g} ⭐ sovg‘a", "tourGiftLeft": "Qolgan {l} ⭐ botda qoladi", "tourGiftNone": "Bank sovg‘aga yetmasa, g‘olib 1 000 tanga oladi", "tourPrizeFree": "🥇 1-o‘rin: 1 000 🪙", "tourPrizeFreeSub": "Faqat g‘olibga beriladi, boshqa sovrin yo‘q.", "tourGiftSent": "🎁 G‘olibga {g} ⭐ sovg‘a yuborildi", "tourGiftCoins": "🪙 G‘olibga 1 000 tanga berildi", "tourGiftPending": "🎁 Sovg‘a yuborilmoqda…", "tourRulesTitle": "Qoidalar", "tourErrRefund": "Stars qaytarilmadi, keyinroq urinib ko‘ring", "tourResultGift": "{p}-o‘rin · 🎁 {g} ⭐", "tourRulesFree": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Bepul turnir: sovrin faqat 1-o‘ringa.", "tourRulesStars": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Kirish to‘lovi Telegram Stars bilan to‘lanadi, hammasi bankka yig‘iladi.\n• G‘olibga bank yetadigan eng qimmat sovg‘ani bot o‘zi yuboradi, qolgani botda qoladi.\n• Turnir boshlanmasdan chiqsangiz yoki bekor qilinsa, Stars qaytariladi.\n• Sovg‘a yetib borishi uchun bot bilan kamida bir marta /start bosgan bo‘lishingiz kerak."});
 Object.assign(I18N.kaa, {"tourJoinPay": "⭐ {f} ⭐ ТӨЛЕП ҚОСЫЛЫЎ", "tourLeaveRefund": "Шығыў (Stars қайтарылады)", "tourPool": "Банк ҳәм сыйлық", "tourGiftNow": "🎁 {g} ⭐ подарок", "tourGiftLeft": "Қалған {l} ⭐ бот балансында қалады", "tourGiftNone": "Банк подарокқа жетпесе, жеңимпазға 1 000 койн бериледи", "tourPrizeFree": "🥇 1-орын: 1 000 🪙", "tourPrizeFreeSub": "Тек жеңимпазға бериледи, басқа сыйлық жоқ.", "tourGiftSent": "🎁 Жеңимпазға {g} ⭐ подарок жиберилди", "tourGiftCoins": "🪙 Жеңимпазға 1 000 койн берилди", "tourGiftPending": "🎁 Подарок жиберилмекте…", "tourRulesTitle": "Ереже", "tourErrRefund": "Stars қайтарылмады, кейинирек қайталап көриң", "tourResultGift": "{p}-орын · 🎁 {g} ⭐", "tourRulesFree": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Тегин турнир: сыйлық тек 1-орынға.", "tourRulesStars": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Кириў ақысы Telegram Stars пенен төленеди, барлығы банкке жыйналады.\n• Жеңимпазға банкке сыйатуғын ең қымбат подарокты бот өзи жибереди, қалғаны ботта қалады.\n• Турнир басланбай шықсаңыз яки бийкар етилсе, Stars қайтарылады.\n• Подарок келиўи ушын ботты бир рет ашып, /start басқан болыўыңыз керек."});
 
+Object.assign(I18N.kk, {"tourNoticeFree": "Жаңа турнир ашылды · тегін · {c}/{s}", "tourNoticeStars": "Жаңа турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Қарау"});
+Object.assign(I18N.ru, {"tourNoticeFree": "Открыт новый турнир · бесплатно · {c}/{s}", "tourNoticeStars": "Новый турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Смотреть"});
+Object.assign(I18N.uz, {"tourNoticeFree": "Yangi turnir ochildi · bepul · {c}/{s}", "tourNoticeStars": "Yangi turnir · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Ko‘rish"});
+Object.assign(I18N.kaa, {"tourNoticeFree": "Жаңа турнир ашылды · тегин · {c}/{s}", "tourNoticeStars": "Жаңа турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Көриў"});
+
+Object.assign(I18N.kk, {"tourTabMain": "Негізгі", "tourTabBracket": "Сетка", "tourTabRules": "Ереже", "tourStartIn": "Басталуына: {t}", "tourStartSoon": "Бастау уақыты келді…", "tourBracketSoon": "Сетка турнир басталғанда құрылады.", "tourAutoNote": "Турнир көрсетілген уақытта автоматты басталады. Басталардан 5 минут бұрын жеке чатқа ескерту барады.", "tourNoticeJoined": "Сіз тіркелгенсіз · {c}/{s}", "tourDead": "екеуі де шықты"});
+Object.assign(I18N.ru, {"tourTabMain": "Главная", "tourTabBracket": "Сетка", "tourTabRules": "Правила", "tourStartIn": "До старта: {t}", "tourStartSoon": "Время старта пришло…", "tourBracketSoon": "Сетка появится, когда турнир начнётся.", "tourAutoNote": "Турнир стартует автоматически в указанное время. За 5 минут до старта придёт напоминание в личный чат.", "tourNoticeJoined": "Вы зарегистрированы · {c}/{s}", "tourDead": "оба выбыли"});
+Object.assign(I18N.uz, {"tourTabMain": "Asosiy", "tourTabBracket": "Setka", "tourTabRules": "Qoidalar", "tourStartIn": "Boshlanishiga: {t}", "tourStartSoon": "Boshlanish vaqti keldi…", "tourBracketSoon": "Setka turnir boshlanganda tuziladi.", "tourAutoNote": "Turnir ko‘rsatilgan vaqtda avtomatik boshlanadi. Boshlanishiga 5 daqiqa qolganda shaxsiy chatga eslatma keladi.", "tourNoticeJoined": "Siz ro‘yxatdasiz · {c}/{s}", "tourDead": "ikkalasi ham chiqdi"});
+Object.assign(I18N.kaa, {"tourTabMain": "Тийкарғы", "tourTabBracket": "Сетка", "tourTabRules": "Ереже", "tourStartIn": "Басланыўына: {t}", "tourStartSoon": "Баслаў ўақыты келди…", "tourBracketSoon": "Сетка турнир басланғанда дүзиледи.", "tourAutoNote": "Турнир көрсетилген ўақытта автомат басланады. Басланыўына 5 минут қалғанда жеке чатқа ескертиў барады.", "tourNoticeJoined": "Сиз дизимдесиз · {c}/{s}", "tourDead": "екеўи де шықты"});
+
 const tr = (key, vars) => {
   let s = (I18N[LANG] && I18N[LANG][key]);
 
@@ -4024,6 +4034,8 @@ function onTour(m) {
   S.tour.lite = m;
   if (m.t === 'tour') S.tour.full = m;
 
+  tourNoticeMaybe(m);
+
   S.tour.hot = Boolean(m.on && m.status === 'live' && m.alive && m.myMatch && !m.myReady && !m.myPlaying);
 
   if (S.tour.hot && !wasHot) {
@@ -4074,31 +4086,56 @@ function tourRoundLabel(i, n) {
   return tr('tourRoundN', { n: i + 1 });
 }
 
-function renderTour() {
-  const body = $('tourBody');
-  const f = S.tour.full;
+function fmtLeft(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const p = (n) => String(n).padStart(2, '0');
 
-  if (!body || !f) return;
+  return h ? h + ':' + p(m) + ':' + p(s % 60) : m + ':' + p(s % 60);
+}
 
-  body.textContent = '';
+function tourNone(body, f) {
+  const c = tEl('div', 'tcard');
+  c.appendChild(tEl('h2', '', '🏆 ' + tr('tourNone')));
+  c.appendChild(tEl('p', 'tnote', tr('tourNoneSub')));
+  body.appendChild(c);
 
-  const me = S.me ? S.me.id : null;
+  if (f.lastInfo) {
+    const l = f.lastInfo;
+    const d = tEl('div', 'tcard');
+    d.appendChild(tEl('span', 'tbadge live', tr('tourLast')));
+    d.appendChild(tEl('h2', '', l.name));
+    d.appendChild(tEl('p', 'tnote', '🥇 ' + l.first + '  ·  🥈 ' + l.second));
+    if (l.third && l.third.length) d.appendChild(tEl('p', 'tnote', '🥉 ' + l.third.join(', ')));
 
-  if (!f.on) {
-    const c = tEl('div', 'tcard');
-    c.appendChild(tEl('h2', '', '🏆 ' + tr('tourNone')));
-    c.appendChild(tEl('p', 'tnote', tr('tourNoneSub')));
-    body.appendChild(c);
-  } else {
-    const c = tEl('div', 'tcard');
-    c.appendChild(tEl('span', 'tbadge' + (f.status === 'live' ? ' live' : ''), '● ' + tr(f.status === 'live' ? 'tourLive' : 'tourReg')));
-    c.appendChild(tEl('h2', '', f.name));
+    if (l.kind === 'stars' && l.gift) {
+      d.appendChild(tEl('p', 'tnote', tr(
+        l.gift.status === 'sent' ? 'tourGiftSent' : l.gift.status === 'coins' ? 'tourGiftCoins' : 'tourGiftPending',
+        { g: l.gift.stars }
+      )));
+    } else if (l.kind !== 'stars') {
+      d.appendChild(tEl('p', 'tnote', tr('tourPrizeFree')));
+    }
 
+    body.appendChild(d);
+  }
+}
+
+function tourMain(body, f) {
+  const live = f.status === 'live';
+  const stars = f.kind === 'stars';
+  const c = tEl('div', 'tcard');
+
+  c.appendChild(tEl('span', 'tbadge' + (live ? ' live' : ''), '● ' + tr(live ? 'tourLive' : 'tourReg')));
+  c.appendChild(tEl('h2', '', f.name));
+
+  if (!live) {
     const row = tEl('div', 'trow');
     [
       [f.count + ' / ' + f.size, tr('tourCount')],
       [f.startText || '—', tr('tourStartAt')],
-      [f.kind === 'stars' ? f.fee + ' ⭐' : tr('tourFree'), tr('tourFee')]
+      [stars ? f.fee + ' ⭐' : tr('tourFree'), tr('tourFee')]
     ].forEach(([v, k]) => {
       const s = tEl('div', 'tst');
       s.appendChild(tEl('b', '', v));
@@ -4107,159 +4144,220 @@ function renderTour() {
     });
     c.appendChild(row);
 
-    if (f.status === 'reg') {
-      const bar = tEl('div', 'tbar');
-      const fill = tEl('i');
-      fill.style.width = Math.min(100, (f.count / f.size) * 100) + '%';
-      bar.appendChild(fill);
-      c.appendChild(bar);
+    const bar = tEl('div', 'tbar');
+    const fill = tEl('i');
+    fill.style.width = Math.min(100, (f.count / f.size) * 100) + '%';
+    bar.appendChild(fill);
+    c.appendChild(bar);
 
-      if (f.joined) {
-        const ok = tEl('button', 'tbtn ok', tr('tourJoined'));
-        ok.type = 'button';
-        ok.disabled = true;
-        c.appendChild(ok);
+    if (f.startAt) {
+      const sl = tEl('p', 'tnote');
+      sl.id = 'tourStartIn';
+      c.appendChild(sl);
+      S.tour.startAt = f.startAt;
+    }
 
-        const lv = tEl('button', 'tbtn sec', tr(f.kind === 'stars' ? 'tourLeaveRefund' : 'tourLeave'));
-        lv.type = 'button';
-        lv.onclick = () => send({ t: 'tour_leave' });
-        c.appendChild(lv);
-      } else {
-        const j = tEl('button', 'tbtn', tr(f.kind === 'stars' ? 'tourJoinPay' : 'tourJoin', { f: f.fee }));
-        j.type = 'button';
-        j.disabled = f.count >= f.size;
-        j.onclick = () => { haptic('medium'); send({ t: 'tour_join' }); };
-        c.appendChild(j);
-      }
-    } else if (f.my) {
-      c.appendChild(tEl('div', 'tsec', tr('tourYourMatch')));
+    if (f.joined) {
+      const ok = tEl('button', 'tbtn ok', tr('tourJoined'));
+      ok.type = 'button';
+      ok.disabled = true;
+      c.appendChild(ok);
 
-      const vs = tEl('div', 'tvs');
-      vs.appendChild(tEl('span', '', S.me ? S.me.name : ''));
-      vs.appendChild(tEl('small', '', 'VS'));
-      vs.appendChild(tEl('span', '', f.my.opp.name));
-      c.appendChild(vs);
-
-      if (f.my.playing) {
-        c.appendChild(tEl('p', 'tnote', tr('tourPlaying')));
-      } else if (!f.my.ready) {
-        const r = tEl('button', 'tbtn green', tr('tourReady'));
-        r.type = 'button';
-        r.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); };
-        c.appendChild(r);
-      } else {
-        c.appendChild(tEl('p', 'tnote', tr('tourReadyWait')));
-      }
-
-      S.tour.until = Date.now() + (f.my.left || 0);
-      const left = tEl('p', 'tnote');
-      left.id = 'tourLeft';
-      c.appendChild(left);
-      tourTick();
-    } else if (f.alive) {
-      c.appendChild(tEl('p', 'tnote', tr('tourWaitRound')));
+      const lv = tEl('button', 'tbtn sec', tr(stars ? 'tourLeaveRefund' : 'tourLeave'));
+      lv.type = 'button';
+      lv.onclick = () => send({ t: 'tour_leave' });
+      c.appendChild(lv);
     } else {
-      c.appendChild(tEl('p', 'tnote', tr('tourOut')));
+      const j = tEl('button', 'tbtn', tr(stars ? 'tourJoinPay' : 'tourJoin', { f: f.fee }));
+      j.type = 'button';
+      j.disabled = f.count >= f.size;
+      j.onclick = () => { haptic('medium'); send({ t: 'tour_join' }); };
+      c.appendChild(j);
     }
 
-    body.appendChild(c);
+    if (f.startAt) c.appendChild(tEl('p', 'tnote tsmall', tr('tourAutoNote')));
+  } else if (f.my) {
+    c.appendChild(tEl('div', 'tsec', tr('tourYourMatch')));
 
-    if (f.kind === 'stars') {
-      body.appendChild(tEl('div', 'tsec', tr('tourPool')));
-      const bx = tEl('div', 'tbox');
-      bx.appendChild(tEl('div', 'tpool', (f.pool || 0) + ' ⭐'));
+    const vs = tEl('div', 'tvs');
+    vs.appendChild(tEl('span', '', S.me ? S.me.name : ''));
+    vs.appendChild(tEl('small', '', 'VS'));
+    vs.appendChild(tEl('span', '', f.my.opp.name));
+    c.appendChild(vs);
 
-      const tiers = tEl('div', 'ttiers');
-      (f.tiers || []).forEach((x) => tiers.appendChild(tEl('div', 'ttr' + (x === f.gift ? ' on' : ''), x + ' ⭐')));
-      bx.appendChild(tiers);
-
-      const w = tEl('div', 'twin');
-      if (f.gift) {
-        w.appendChild(tEl('b', '', tr('tourGiftNow', { g: f.gift })));
-        w.appendChild(tEl('small', '', tr('tourGiftLeft', { l: f.pool - f.gift })));
-      } else {
-        w.appendChild(tEl('small', '', tr('tourGiftNone')));
-      }
-      bx.appendChild(w);
-      body.appendChild(bx);
+    if (f.my.playing) {
+      c.appendChild(tEl('p', 'tnote', tr('tourPlaying')));
+    } else if (!f.my.ready) {
+      const r = tEl('button', 'tbtn green', tr('tourReady'));
+      r.type = 'button';
+      r.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); };
+      c.appendChild(r);
     } else {
-      body.appendChild(tEl('div', 'tsec', tr('tourPrizes')));
-      const w = tEl('div', 'twin');
-      w.appendChild(tEl('b', '', tr('tourPrizeFree')));
-      w.appendChild(tEl('small', '', tr('tourPrizeFreeSub')));
-      body.appendChild(w);
+      c.appendChild(tEl('p', 'tnote', tr('tourReadyWait')));
     }
 
-    body.appendChild(tEl('div', 'tsec', tr('tourRulesTitle')));
-    body.appendChild(tEl('div', 'tbox trules', tr(f.kind === 'stars' ? 'tourRulesStars' : 'tourRulesFree')));
-
-    if (f.status === 'reg' && f.players && f.players.length) {
-      body.appendChild(tEl('div', 'tsec', tr('tourPlayers') + ' · ' + f.count));
-      const ch = tEl('div', 'tchips');
-      f.players.forEach((n) => ch.appendChild(tEl('span', 'tchip', n)));
-      body.appendChild(ch);
-    }
-
-    if (f.status === 'live' && f.rounds) {
-      body.appendChild(tEl('div', 'tsec', tr('tourBracket')));
-      const br = tEl('div', 'tbr');
-
-      f.rounds.forEach((round, ri) => {
-        const col = tEl('div', 'tcol');
-        col.appendChild(tEl('h4', '', tourRoundLabel(ri, round.length)));
-
-        round.forEach((m) => {
-          const box = tEl('div', 'tm' + (m.play ? ' play' : ''));
-
-          [m.a, m.b].forEach((p) => {
-            let cls = 'tp';
-
-            if (!p) cls += ' q';
-            else {
-              if (m.w) cls += m.w === p.id ? ' w' : ' l';
-              if (p.id === me) cls += ' me';
-            }
-
-            box.appendChild(tEl('div', cls, p ? p.name : tr('tourByeLbl')));
-          });
-
-          col.appendChild(box);
-        });
-
-        br.appendChild(col);
-      });
-
-      body.appendChild(br);
-    }
+    S.tour.until = Date.now() + (f.my.left || 0);
+    const left = tEl('p', 'tnote');
+    left.id = 'tourLeft';
+    c.appendChild(left);
+  } else if (f.alive) {
+    c.appendChild(tEl('p', 'tnote', tr('tourWaitRound')));
+  } else {
+    c.appendChild(tEl('p', 'tnote', tr('tourOut')));
   }
 
-  if (!f.on && f.lastInfo) {
-    const l = f.lastInfo;
-    const c = tEl('div', 'tcard');
-    c.appendChild(tEl('span', 'tbadge live', tr('tourLast')));
-    c.appendChild(tEl('h2', '', l.name));
-    c.appendChild(tEl('p', 'tnote', '🥇 ' + l.first + '  ·  🥈 ' + l.second));
-    if (l.third && l.third.length) c.appendChild(tEl('p', 'tnote', '🥉 ' + l.third.join(', ')));
+  body.appendChild(c);
 
-    if (l.kind === 'stars' && l.gift) {
-      c.appendChild(tEl('p', 'tnote', tr(
-        l.gift.status === 'sent' ? 'tourGiftSent' : l.gift.status === 'coins' ? 'tourGiftCoins' : 'tourGiftPending',
-        { g: l.gift.stars }
-      )));
-    } else if (l.kind !== 'stars') {
-      c.appendChild(tEl('p', 'tnote', tr('tourPrizeFree')));
+  if (stars) {
+    body.appendChild(tEl('div', 'tsec', tr('tourPool')));
+    const bx = tEl('div', 'tbox');
+    bx.appendChild(tEl('div', 'tpool', (f.pool || 0) + ' ⭐'));
+
+    const tiers = tEl('div', 'ttiers');
+    (f.tiers || []).forEach((x) => tiers.appendChild(tEl('div', 'ttr' + (x === f.gift ? ' on' : ''), x + ' ⭐')));
+    bx.appendChild(tiers);
+
+    const w = tEl('div', 'twin');
+    if (f.gift) {
+      w.appendChild(tEl('b', '', tr('tourGiftNow', { g: f.gift })));
+      w.appendChild(tEl('small', '', tr('tourGiftLeft', { l: f.pool - f.gift })));
+    } else {
+      w.appendChild(tEl('small', '', tr('tourGiftNone')));
     }
-    body.appendChild(c);
+    bx.appendChild(w);
+    body.appendChild(bx);
+  } else {
+    body.appendChild(tEl('div', 'tsec', tr('tourPrizes')));
+    const w = tEl('div', 'twin');
+    w.appendChild(tEl('b', '', tr('tourPrizeFree')));
+    w.appendChild(tEl('small', '', tr('tourPrizeFreeSub')));
+    body.appendChild(w);
   }
+
+  if (!live && f.players && f.players.length) {
+    body.appendChild(tEl('div', 'tsec', tr('tourPlayers') + ' · ' + f.count));
+    const ch = tEl('div', 'tchips');
+    f.players.forEach((n) => ch.appendChild(tEl('span', 'tchip', n)));
+    body.appendChild(ch);
+  }
+}
+
+function tourBracketView(body, f, me) {
+  const R = f.rounds || [];
+
+  if (!R.length) {
+    const b = tEl('div', 'tbox');
+    b.appendChild(tEl('p', 'tnote', tr('tourBracketSoon')));
+    b.appendChild(tEl('p', 'tnote', tr('tourCount') + ': ' + f.count));
+    body.appendChild(b);
+    return;
+  }
+
+  const n1 = R[0].length;
+  let total = 1;
+  while ((1 << (total - 1)) < n1) total++;
+
+  const row = (p, m, side) => {
+    let cls = 'tb-p';
+
+    if (!p) cls += ' q';
+    else {
+      if (m && m.w) cls += m.w === p.id ? ' w' : ' l';
+      if (p.id === me) cls += ' me';
+    }
+
+    return tEl('div', cls, p ? p.name : (m && m.w === '-' ? '—' : '?'));
+  };
+
+  const slot = (m, left, last) => {
+    const s = tEl('div', 'tb-slot');
+    const b = tEl('div', 'tb-m' + (m && m.play ? ' pl' : '') + (left ? ' left' : '') + (last ? ' last' : ''));
+    b.appendChild(row(m && m.a, m));
+    b.appendChild(row(m && m.b, m));
+    s.appendChild(b);
+    return s;
+  };
+
+  const wrap = tEl('div', 'tb-wrap');
+  const cols = tEl('div', 'tb-cols');
+
+  for (let r = 0; r < total; r++) {
+    const cnt = Math.max(1, n1 >> r);
+    const ms = R[r] || [];
+    const col = tEl('div', 'tb-col');
+    col.appendChild(tEl('h4', '', tourRoundLabel(r, cnt)));
+
+    const list = tEl('div', 'tb-list');
+
+    if (r < total - 1) {
+      for (let i = 0; i < cnt; i += 2) {
+        const pair = tEl('div', 'tb-pair');
+        pair.appendChild(slot(ms[i] || null, r > 0, false));
+        pair.appendChild(slot(ms[i + 1] || null, r > 0, false));
+        list.appendChild(pair);
+      }
+    } else {
+      list.appendChild(slot(ms[0] || null, r > 0, true));
+    }
+
+    col.appendChild(list);
+    cols.appendChild(col);
+  }
+
+  wrap.appendChild(cols);
+  body.appendChild(wrap);
+}
+
+function tourRulesView(body, f) {
+  body.appendChild(tEl('div', 'tbox trules', tr(f.kind === 'stars' ? 'tourRulesStars' : 'tourRulesFree')));
+}
+
+function renderTour() {
+  const body = $('tourBody');
+  const f = S.tour.full;
+
+  if (!body || !f) return;
+
+  body.textContent = '';
+
+  if (!f.on) {
+    tourNone(body, f);
+    return;
+  }
+
+  const tab = S.tour.tab || 0;
+  const bar = tEl('div', 'ttabs');
+
+  ['tourTabMain', 'tourTabBracket', 'tourTabRules'].forEach((k, i) => {
+    const b = tEl('button', tab === i ? 'on' : '', tr(k));
+    b.type = 'button';
+    b.onclick = () => { S.tour.tab = i; renderTour(); };
+    bar.appendChild(b);
+  });
+
+  body.appendChild(bar);
+
+  const me = S.me ? String(S.me.id) : null;
+
+  if (tab === 0) { tourMain(body, f); tourTick(); }
+  else if (tab === 1) tourBracketView(body, f, me);
+  else tourRulesView(body, f);
 }
 
 function tourTick() {
   const el = $('tourLeft');
 
-  if (!el) return;
+  if (el) {
+    const s = Math.max(0, Math.round((S.tour.until - Date.now()) / 1000));
+    el.textContent = tr('tourLeftT') + ': ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
 
-  const s = Math.max(0, Math.round((S.tour.until - Date.now()) / 1000));
-  el.textContent = tr('tourLeftT') + ': ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  const st = $('tourStartIn');
+
+  if (st && S.tour.startAt) {
+    const ms = S.tour.startAt - Date.now();
+    st.textContent = ms > 0 ? tr('tourStartIn', { t: fmtLeft(ms) }) : tr('tourStartSoon');
+  }
 }
 
 function stopTourPoll() {
@@ -4273,6 +4371,7 @@ function openTour() {
 
   if (l && !l.on && l.last) tourMarkSeen(l.last.id);
 
+  S.tour.tab = 0;
   send({ t: 'tour_get' });
 
   if (S.tour.full) renderTour();
@@ -4285,6 +4384,92 @@ function openTour() {
     if (!document.hidden) send({ t: 'tour_get' });
   }, 7000);
   S.tour.tick = setInterval(tourTick, 1000);
+}
+
+
+/* ---------- Мини-app ашылғанда турнир хабарландыруы ---------- */
+
+const TOUR_NOTICE_MS = 30 * 60 * 1000;   // қайта көрсету аралығы: 30 минут
+S.tour.noticeDone = false;
+S.tour.noticeTimer = null;
+
+function tourNoticeMaybe(m) {
+  // Тек мини-app ашылғандағы бірінші жаңартуда тексереміз
+  if (S.tour.noticeDone || m.t !== 'tour_lite') return;
+  S.tour.noticeDone = true;
+
+  if (!m.on || m.status !== 'reg') return;
+
+  tryTourNotice(0);
+}
+
+function tryTourNotice(n) {
+  const m = S.tour.lite;
+  const menu = $('menu');
+
+  if (!m || !m.on || m.status !== 'reg') return;
+
+  // Меню әлі көрінбесе, сәл кейін қайта тексереміз
+  if (!menu || !menu.classList.contains('active')) {
+    if (n < 10) setTimeout(() => tryTourNotice(n + 1), 700);
+    return;
+  }
+
+  let last = null;
+
+  try { last = JSON.parse(localStorage.getItem('shashka_tour_notice') || 'null'); } catch (e) {}
+
+  // Жаңа турнир болса немесе соңғы көрсетуден 30 минут өтсе көрсетеміз
+  const fresh = !last || last.id !== m.id || Date.now() - last.at >= TOUR_NOTICE_MS;
+
+  if (!fresh) return;
+
+  try {
+    localStorage.setItem('shashka_tour_notice', JSON.stringify({ id: m.id, at: Date.now() }));
+  } catch (e) {}
+
+  setTimeout(() => showTourNotice(S.tour.lite || m), 500);
+}
+
+function hideTourNotice() {
+  const n = $('tourNotice');
+
+  if (!n) return;
+
+  clearTimeout(S.tour.noticeTimer);
+  n.classList.remove('on');
+  setTimeout(() => n.classList.add('hid'), 350);
+}
+
+function showTourNotice(m) {
+  const n = $('tourNotice');
+
+  if (!n) return;
+
+  n.textContent = '';
+
+  const txt = tEl('div', 'tn-t');
+  txt.appendChild(tEl('b', '', '🏆 ' + m.name));
+  txt.appendChild(tEl('small', '', tr(m.joined ? 'tourNoticeJoined' : m.kind === 'stars' ? 'tourNoticeStars' : 'tourNoticeFree', { f: m.fee, c: m.count, s: m.size })));
+
+  const go = tEl('button', 'tn-go', tr('tourNoticeGo'));
+  go.type = 'button';
+  go.onclick = () => { hideTourNotice(); openTour(); };
+
+  const x = tEl('button', 'tn-x', '✕');
+  x.type = 'button';
+  x.onclick = hideTourNotice;
+
+  n.appendChild(txt);
+  n.appendChild(go);
+  n.appendChild(x);
+
+  n.classList.remove('hid');
+  requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add('on')));
+  haptic('light');
+
+  clearTimeout(S.tour.noticeTimer);
+  S.tour.noticeTimer = setTimeout(hideTourNotice, 9000);
 }
 
 $('btnTour').onclick = openTour;
