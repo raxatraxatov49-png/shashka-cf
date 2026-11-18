@@ -1039,6 +1039,11 @@ Object.assign(I18N.ru, {"tourTabMain": "Главная", "tourTabBracket": "Се
 Object.assign(I18N.uz, {"tourTabMain": "Asosiy", "tourTabBracket": "Setka", "tourTabRules": "Qoidalar", "tourStartIn": "Boshlanishiga: {t}", "tourStartSoon": "Boshlanish vaqti keldi…", "tourBracketSoon": "Setka turnir boshlanganda tuziladi.", "tourAutoNote": "Turnir ko‘rsatilgan vaqtda avtomatik boshlanadi. Boshlanishiga 5 daqiqa qolganda shaxsiy chatga eslatma keladi.", "tourNoticeJoined": "Siz ro‘yxatdasiz · {c}/{s}", "tourDead": "ikkalasi ham chiqdi"});
 Object.assign(I18N.kaa, {"tourTabMain": "Тийкарғы", "tourTabBracket": "Сетка", "tourTabRules": "Ереже", "tourStartIn": "Басланыўына: {t}", "tourStartSoon": "Баслаў ўақыты келди…", "tourBracketSoon": "Сетка турнир басланғанда дүзиледи.", "tourAutoNote": "Турнир көрсетилген ўақытта автомат басланады. Басланыўына 5 минут қалғанда жеке чатқа ескертиў барады.", "tourNoticeJoined": "Сиз дизимдесиз · {c}/{s}", "tourDead": "екеўи де шықты"});
 
+Object.assign(I18N.kk, {"tourMatchTitle": "⚔️ Турнир ойыныңыз дайын!", "tourMatchSub": "Қарсылас: {o} · {t}", "tourMatchOpen": "Ашу"});
+Object.assign(I18N.ru, {"tourMatchTitle": "⚔️ Ваш турнирный матч готов!", "tourMatchSub": "Соперник: {o} · {t}", "tourMatchOpen": "Открыть"});
+Object.assign(I18N.uz, {"tourMatchTitle": "⚔️ Turnir o‘yiningiz tayyor!", "tourMatchSub": "Raqib: {o} · {t}", "tourMatchOpen": "Ochish"});
+Object.assign(I18N.kaa, {"tourMatchTitle": "⚔️ Турнир ойыныңыз таяр!", "tourMatchSub": "Қарсылас: {o} · {t}", "tourMatchOpen": "Ашыў"});
+
 const tr = (key, vars) => {
   let s = (I18N[LANG] && I18N[LANG][key]);
 
@@ -4038,10 +4043,9 @@ function onTour(m) {
 
   S.tour.hot = Boolean(m.on && m.status === 'live' && m.alive && m.myMatch && !m.myReady && !m.myPlaying);
 
-  if (S.tour.hot && !wasHot) {
-    haptic('heavy');
-    if (!$('tour').classList.contains('active')) tourToast(tr('tourBannerMy'));
-  }
+  if (S.tour.hot && !wasHot) haptic('heavy');
+
+  tourMatchPopup();
 
   tourBanner();
 
@@ -4266,7 +4270,7 @@ function tourBracketView(body, f, me) {
       if (p.id === me) cls += ' me';
     }
 
-    return tEl('div', cls, p ? p.name : (m && m.w === '-' ? '—' : '?'));
+    return tEl('div', cls, p ? p.name : (m && m.w === '-' ? '—' : (m && m.w ? tr('tourByeLbl') : '?')));
   };
 
   const slot = (m, left, last) => {
@@ -4476,6 +4480,83 @@ function showTourNotice(m) {
 
   clearTimeout(S.tour.noticeTimer);
   S.tour.noticeTimer = setTimeout(hideTourNotice, 9000);
+}
+
+
+/* ---------- «Ойыныңыз дайын» терезесі (кез келген бетте, ойында болсаң да) ---------- */
+
+S.tour.matchOn = false;
+S.tour.matchUntil = 0;
+S.tour.matchTimer = null;
+
+function hideTourMatch() {
+  const n = $('tourMatch');
+
+  clearInterval(S.tour.matchTimer);
+  S.tour.matchTimer = null;
+  S.tour.matchOn = false;
+
+  if (!n) return;
+
+  n.classList.remove('on');
+  setTimeout(() => { if (!S.tour.matchOn) n.classList.add('hid'); }, 350);
+}
+
+function tourMatchTick() {
+  const el = $('tmSub');
+
+  if (!el || !S.tour.lite) return;
+
+  const ms = S.tour.matchUntil - Date.now();
+  el.textContent = tr('tourMatchSub', { o: S.tour.lite.myOpp || '', t: fmtLeft(ms) });
+}
+
+function tourMatchPopup() {
+  const n = $('tourMatch');
+  const l = S.tour.lite;
+
+  if (!n) return;
+
+  // Тәртіпке сай болмаса немесе турнир экранында тұрса, көрсетпейміз
+  if (!S.tour.hot || !l || $('tour').classList.contains('active')) {
+    if (S.tour.matchOn) hideTourMatch();
+    return;
+  }
+
+  S.tour.matchUntil = Date.now() + (l.myLeft || 0);
+
+  if (S.tour.matchOn) {
+    tourMatchTick();
+    return;
+  }
+
+  S.tour.matchOn = true;
+  n.textContent = '';
+
+  const txt = tEl('div', 'tm-t');
+  txt.appendChild(tEl('b', '', tr('tourMatchTitle')));
+  const sub = tEl('small', '');
+  sub.id = 'tmSub';
+  txt.appendChild(sub);
+
+  const ready = tEl('button', 'tm-go', tr('tourReady'));
+  ready.type = 'button';
+  ready.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); hideTourMatch(); };
+
+  const open = tEl('button', 'tm-open', tr('tourMatchOpen'));
+  open.type = 'button';
+  open.onclick = () => { hideTourMatch(); openTour(); };
+
+  n.appendChild(txt);
+  n.appendChild(open);
+  n.appendChild(ready);
+
+  n.classList.remove('hid');
+  requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add('on')));
+  tourMatchTick();
+
+  clearInterval(S.tour.matchTimer);
+  S.tour.matchTimer = setInterval(tourMatchTick, 1000);
 }
 
 $('btnTour').onclick = openTour;
