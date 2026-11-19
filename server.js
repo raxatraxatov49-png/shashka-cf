@@ -60,6 +60,8 @@ const BOT_FILE = path.join(DATA_DIR, 'botwins.json');
 const BOT_REWARD = 250;
 const BOT_DAILY_REWARDS = Number(process.env.BOT_DAILY_REWARDS) || 5;
 const BOT_THINK_MS = Number(process.env.BOT_THINK_MS) || 700;
+// Есептеу көлемі (түйін саны). Көп болса бот күшті, бірақ баяу: 90000 ≈ 0,3 сек, 8 жүріс тереңдік
+const BOT_NODES = Number(process.env.BOT_NODES) || 90000;
 const BOT_NAME = 'Бот';
 let botDaily = { day: '', users: {} };
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
@@ -1983,7 +1985,7 @@ function botMove(g) {
   let steps = null;
 
   try {
-    const r = botEngine.bestMove(g.st, { ms: BOT_THINK_MS });
+    const r = botEngine.bestMove(g.st, { ms: BOT_THINK_MS, nodes: BOT_NODES });
     steps = r && r.steps;
   } catch (e) {
     console.error('Бот қатесі:', e.message);
@@ -2011,7 +2013,7 @@ function playBotSteps(g, steps, i) {
   broadcastStep(g, step);
 
   if (games.has(g.id) && !g.st.over && step.more && i + 1 < steps.length) {
-    g.botTimer = setTimeout(() => playBotSteps(g, steps, i + 1), 550);
+    g.botTimer = setTimeout(() => playBotSteps(g, steps, i + 1), 350);
     if (g.botTimer.unref) g.botTimer.unref();
   }
 }
@@ -2058,7 +2060,7 @@ function startBotGame(u) {
 
   startTurnTimer(g);
 
-  if (g.bot.side === 'w') scheduleBot(g, 900);
+  if (g.bot.side === 'w') scheduleBot(g, 500);
 
   return g;
 }
@@ -6873,7 +6875,7 @@ function handle(u, m) {
       broadcastStep(g, step);
 
       if (g.bot && games.has(g.id) && !g.st.over && g.st.turn === g.bot.side) {
-        scheduleBot(g, 650);
+        scheduleBot(g, 250);
       }
 
       return;
