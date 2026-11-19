@@ -63,6 +63,11 @@ const BOT_THINK_MS = Number(process.env.BOT_THINK_MS) || 700;
 // Есептеу көлемі (түйін саны). Көп болса бот күшті, бірақ баяу: 90000 ≈ 0,3 сек, 8 жүріс тереңдік
 const BOT_NODES = Number(process.env.BOT_NODES) || 90000;
 const BOT_NAME = 'Бот';
+// 'client' (әдепкі): бот жүрісін ойыншының телефоны есептейді, сервер тек тексереді (тегін Cloudflare жоспарына арналған).
+// 'server': сервердің өзі есептейді (Workers Paid жоспарында ғана, CPU лимиті жеткілікті болғанда).
+const BOT_MODE = process.env.BOT_MODE === 'server' ? 'server' : 'client';
+// Турнир бөлімі: әдепкіде өшірулі. Қайта қосу үшін TOURNAMENT_ENABLED=1 орнатыңыз.
+const TOURNAMENT_ENABLED = process.env.TOURNAMENT_ENABLED === '1';
 let botDaily = { day: '', users: {} };
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
@@ -1974,9 +1979,33 @@ function scheduleBot(g, delay) {
   if (!g || !g.bot) return;
 
   clearTimeout(g.botTimer);
-  g.botTimer = setTimeout(() => botMove(g), delay);
+
+  // client режимінде жүрісті телефон жібереді; 9 секундта келмесе, сервер жеңіл жүріс жасайды
+  g.botTimer = BOT_MODE === 'server'
+    ? setTimeout(() => botMove(g), delay)
+    : setTimeout(() => botFallback(g), 9000);
 
   if (g.botTimer.unref) g.botTimer.unref();
+}
+
+// Телефон жауап бермесе: ең жеңіл жүріс (жеу болса жеу), CPU жүктемесі жоқ
+function botFallback(g) {
+  if (!games.has(g.id) || g.st.over || g.st.turn !== g.bot.side) return;
+
+  const lm = G.legalMoves(g.st);
+
+  if (!lm.length) return;
+
+  const caps = lm.filter(m => m.cap != null);
+  const list = caps.length ? caps : lm;
+  const pick = list[Math.floor(Math.random() * list.length)];
+
+  playBotSteps(g, [[pick.from, pick.to]], 0);
+
+  if (games.has(g.id) && !g.st.over && g.st.turn === g.bot.side) {
+    g.botTimer = setTimeout(() => botFallback(g), 400);
+    if (g.botTimer.unref) g.botTimer.unref();
+  }
 }
 
 function botMove(g) {
@@ -2008,7 +2037,12 @@ function playBotSteps(g, steps, i) {
   const [from, to] = steps[i];
   const step = G.applyMove(g.st, from, to);
 
-  if (!step) return;
+  if (!step) {
+    scheduleBot(g, 0);   // дұрыс емес қадам: жеңіл жүріске көшеміз
+    return;
+  }
+
+  if (!step.more) g.botMoves = (g.botMoves || 0) + 1;
 
   broadcastStep(g, step);
 
@@ -2440,7 +2474,7 @@ function adminKeyboard(adminId) {
     }]);
   }
 
-  if (hasPermission(adminId, 'tournament')) {
+  if (TOURNAMENT_ENABLED && hasPermission(adminId, 'tournament')) {
     rows.push([{
       text: '🏆 Турнирлер',
       callback_data: 'adm:tour'
@@ -5418,9 +5452,14 @@ function finish(g, winner, reason) {
     const humanSide = g.bot.side === 'w' ? 'b' : 'w';
     let reward = 0;
 
-    if (winner === humanSide) reward = botRewardFor(g.bot.human);
+    // Нақты жеңіс ғана (уақыт/шығу емес) және кемінде 6 бот жүрісінен кейін
+    const realWin = winner === humanSide &&
+      (reason === 'no_pieces' || reason === 'no_moves') &&
+      (g.botMoves || 0) >= 6;
 
-    botInfo = { bot: true, reward, capped: winner === humanSide && !reward };
+    if (realWin) reward = botRewardFor(g.bot.human);
+
+    botInfo = { bot: true, reward, capped: realWin && !reward };
   }
 
   for (const id of [g.p.w, g.p.b]) {
@@ -6633,7 +6672,8 @@ const tournament = createTournament({
   escapeHtml,
   getLang,
   miniAppUrl: MINI_APP_URL,
-  ownerId: OWNER_ID
+  ownerId: OWNER_ID,
+  enabled: TOURNAMENT_ENABLED
 });
 
 /* ---------- WebSocket хабарламалары ---------- */
@@ -6699,6 +6739,22 @@ function handle(u, m) {
       });
     }
 
+    case 'bot_move': {
+      const bg = u.game && games.get(u.game);
+
+      if (!bg || !bg.bot || bg.bot.human !== u.id || bg.st.over || bg.st.turn !== bg.bot.side) return;
+
+      const steps = m.steps;
+      const okSteps = Array.isArray(steps) && steps.length >= 1 && steps.length <= 12 &&
+        steps.every(s => Array.isArray(s) && Number.isInteger(s[0]) && Number.isInteger(s[1]));
+
+      if (!okSteps) return;
+
+      clearTimeout(bg.botTimer);
+      playBotSteps(bg, steps, 0);
+      return;
+    }
+
     case 'bot_play': {
       if (u.game && games.has(u.game)) {
         return send(u, gameState(games.get(u.game), u.id));
@@ -6746,6 +6802,7 @@ function handle(u, m) {
     case 'tour_join':
     case 'tour_leave':
     case 'tour_ready':
+      if (!TOURNAMENT_ENABLED) return;
       return tournament.ws(u, m);
 
     case 'players_get':
@@ -7098,7 +7155,7 @@ function onAuth(ws, m) {
   });
 
   send(u, shopMsg(u.id));
-  send(u, tournament.lite(u.id));
+  if (TOURNAMENT_ENABLED) send(u, tournament.lite(u.id));
 
   {
     const icode = userInvites.get(u.id);
