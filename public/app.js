@@ -1044,6 +1044,11 @@ Object.assign(I18N.ru, {"tourMatchTitle": "⚔️ Ваш турнирный ма
 Object.assign(I18N.uz, {"tourMatchTitle": "⚔️ Turnir o‘yiningiz tayyor!", "tourMatchSub": "Raqib: {o} · {t}", "tourMatchOpen": "Ochish"});
 Object.assign(I18N.kaa, {"tourMatchTitle": "⚔️ Турнир ойыныңыз таяр!", "tourMatchSub": "Қарсылас: {o} · {t}", "tourMatchOpen": "Ашыў"});
 
+Object.assign(I18N.kk, {"botPlay": "БОТПЕН ОЙНАУ", "botNote": "🧠 Бот өте ақылды: оны жеңу қиын. Жеңсеңіз +250 🪙", "botSub": "🧠 Өте ақылды", "botPrize": "🏆 Ботты жеңсеңіз: +250 🪙", "botReward": "+{c} 🪙 ботты жеңгеніңіз үшін", "botCapped": "Бүгінгі койн лимиті бітті (күніне 5 жеңіс). Ойнай беруге болады"});
+Object.assign(I18N.ru, {"botPlay": "ИГРАТЬ С БОТОМ", "botNote": "🧠 Бот очень умный: победить его сложно. Победа над ботом: +250 🪙", "botSub": "🧠 Очень умный", "botPrize": "🏆 Победа над ботом: +250 🪙", "botReward": "+{c} 🪙 за победу над ботом", "botCapped": "Лимит наград на сегодня исчерпан (5 побед в день). Играть можно дальше"});
+Object.assign(I18N.uz, {"botPlay": "BOT BILAN O‘YNASH", "botNote": "🧠 Bot juda aqlli: uni yutish qiyin. Yutsangiz +250 🪙", "botSub": "🧠 Juda aqlli", "botPrize": "🏆 Botni yutsangiz: +250 🪙", "botReward": "+{c} 🪙 botni yutgani uchun", "botCapped": "Bugungi tanga limiti tugadi (kuniga 5 g‘alaba). O‘ynashda davom etishingiz mumkin"});
+Object.assign(I18N.kaa, {"botPlay": "БОТ ПЕНЕН ОЙНАЎ", "botNote": "🧠 Бот өте ақыллы: оны жеңиў қыйын. Жеңсеңиз +250 🪙", "botSub": "🧠 Өте ақыллы", "botPrize": "🏆 Ботты жеңсеңиз: +250 🪙", "botReward": "+{c} 🪙 ботты жеңгениңиз ушын", "botCapped": "Бүгинги койн лимити питти (күнине 5 жеңис). Ойнай бериўге болады"});
+
 const tr = (key, vars) => {
   let s = (I18N[LANG] && I18N[LANG][key]);
 
@@ -1680,6 +1685,9 @@ function setSearching(on) {
     : tr('play');
 
   $('btnCancel').classList.toggle('hidden', !on);
+
+  const ba = $('botArea');
+  if (ba) ba.classList.toggle('hidden', on);
 }
 
 /* ---------- ХАБАРЛАРДЫ ӨҢДЕУ ---------- */
@@ -2127,7 +2135,7 @@ function startGame(m) {
   hideIncoming();
   S.sentTo = null;
 
-  if (m.spectator) closeRtc();
+  if (m.spectator || m.bot) closeRtc();
   else openRtc(m);
 
   S.inviteMode = false;
@@ -2138,6 +2146,7 @@ function startGame(m) {
     id: m.id,
     you: m.you,
     spectator: Boolean(m.spectator),
+    bot: Boolean(m.bot),
     chatHidden: Boolean(m.chatHidden),
     players: m.players,
     board: m.board,
@@ -2184,6 +2193,24 @@ function startGame(m) {
   $('myAva').classList.toggle('vipf', Boolean(me.vip));
 
   try { showGameRanks(m, opp, me); } catch (e) { console.error(e); }
+
+  // Бот ойыны: 🤖 аватары, «өте ақылды» жазуы, сыйлық белгісі; чат пен микрофон керек емес
+  const isBot = Boolean(m.bot);
+
+  if (isBot) {
+    const oa = $('oppAva');
+
+    oa.style.backgroundImage = 'none';
+    oa.textContent = '🤖';
+    oa.classList.add('botava');
+    $('oppSub').textContent = tr('botSub');
+  } else {
+    $('oppAva').classList.remove('botava');
+  }
+
+  $('botPrize').classList.toggle('hidden', !isBot);
+  $('btnChat').style.display = isBot ? 'none' : '';
+  $('btnMic').classList.toggle('hidden', true);
 
   /*
     Админ/VIP тақта мен тасын қарсыласына көрсетеді.
@@ -2643,7 +2670,13 @@ async function doOver(m) {
     });
   }
 
-  $('resSub').textContent = R[m.reason] || '';
+  let sub = R[m.reason] || '';
+
+  if (g.bot && win) {
+    sub += (sub ? ' · ' : '') + (m.reward ? tr('botReward', { c: m.reward }) : tr('botCapped'));
+  }
+
+  $('resSub').textContent = sub;
   $('btnAgain').style.display = spec ? 'none' : '';
 
   $('sheetMenu').classList.add('hidden');
@@ -3005,6 +3038,18 @@ $('btnBatl').onclick = () => {
   haptic('light');
 };
 
+$('btnBot').onclick = () => {
+  if (S.searching) return;
+
+  if (!S.ws || S.ws.readyState !== 1) {
+    checkAlive();
+    return;
+  }
+
+  haptic('medium');
+  send({ t: 'bot_play' });
+};
+
 $('btnCancel').onclick = () =>
   send({ t: 'cancel' });
 
@@ -3071,6 +3116,8 @@ $('btnToMenu').onclick = () => {
 };
 
 $('btnAgain').onclick = () => {
+  const wasBot = Boolean(S.g && S.g.bot);
+
   S.g = null;
   S.groupWaiting = false;
   S.groupWaitDeadline = null;
@@ -3081,6 +3128,11 @@ $('btnAgain').onclick = () => {
 
   if (!S.ws || S.ws.readyState !== 1) {
     checkAlive();
+    return;
+  }
+
+  if (wasBot) {
+    send({ t: 'bot_play' });
     return;
   }
 
