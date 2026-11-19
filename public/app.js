@@ -2194,23 +2194,31 @@ function startGame(m) {
 
   try { showGameRanks(m, opp, me); } catch (e) { console.error(e); }
 
-  // Бот ойыны: 🤖 аватары, «өте ақылды» жазуы, сыйлық белгісі; чат пен микрофон керек емес
+  // Бот ойыны: 🤖 аватары тек боттың жолында (қай жақта екеніне қарамай), ойыншы өз суретін көреді
   const isBot = Boolean(m.bot);
+  const botRow = (avaId, subId, u) => {
+    const el = $(avaId);
 
-  if (isBot) {
-    const oa = $('oppAva');
+    if (u && u.bot) {
+      el.style.backgroundImage = 'none';
+      el.textContent = '🤖';
+      el.classList.add('botava');
+      $(subId).textContent = tr('botSub');
+    } else {
+      el.classList.remove('botava');
+    }
+  };
 
-    oa.style.backgroundImage = 'none';
-    oa.textContent = '🤖';
-    oa.classList.add('botava');
-    $('oppSub').textContent = tr('botSub');
-  } else {
-    $('oppAva').classList.remove('botava');
-  }
+  botRow('oppAva', 'oppSub', opp);
+  botRow('myAva', 'mySub', me);
 
-  $('botPrize').classList.toggle('hidden', !isBot);
-  $('btnChat').style.display = isBot ? 'none' : '';
-  $('btnMic').classList.toggle('hidden', true);
+  // Ойыншыға ғана: сыйлық белгісі, чат пен микрофон жасырылады. Қалыпты ойында ештеңе өзгермейді.
+  const botPlayer = isBot && !m.spectator;
+
+  $('botPrize').classList.toggle('hidden', !botPlayer);
+  $('btnChat').style.display = botPlayer ? 'none' : '';
+
+  if (botPlayer) $('btnMic').classList.add('hidden');
 
   /*
     Админ/VIP тақта мен тасын қарсыласына көрсетеді.
@@ -2241,6 +2249,9 @@ function startGame(m) {
 
   applySpectatorUi(Boolean(m.spectator));
   updateChatLock();
+
+  S.botBusy = false;
+  botThink();
 }
 
 let sqEls = [];
@@ -2559,6 +2570,77 @@ const SFX = (() => {
   return { play };
 })();
 
+
+/* ---------- Ботты телефонда есептеу (сервердің CPU-ын үнемдейді) ---------- */
+
+let botWorker = null;
+S.botBusy = false;
+
+function botWorkerGet() {
+  if (botWorker) return botWorker;
+
+  try {
+    botWorker = new Worker('bot-worker.js?v=1');
+
+    botWorker.onmessage = (e) => {
+      const d = e.data || {};
+
+      S.botBusy = false;
+
+      if (!S.g || !S.g.bot || S.g.over || d.gid !== S.g.id) return;
+
+      if (d.steps && d.steps.length) send({ t: 'bot_move', steps: d.steps });
+    };
+
+    botWorker.onerror = () => {
+      botWorker = null;
+      S.botBusy = false;
+    };
+  } catch (e) {
+    botWorker = null;
+  }
+
+  return botWorker;
+}
+
+function botThink() {
+  const g = S.g;
+
+  if (!g || !g.bot || g.spectator || g.over || S.botBusy) return;
+
+  const botSide = g.you === 'w' ? 'b' : 'w';
+
+  if (g.turn !== botSide || g.chainPos != null || g.waitingForOpponent) return;
+
+  const w = botWorkerGet();
+
+  if (!w) return;   // телефон жұмыс істемесе, сервер жеңіл жүріс жасайды
+
+  S.botBusy = true;
+
+  setTimeout(() => {
+    const g2 = S.g;
+
+    if (!g2 || g2.id !== g.id || g2.over || g2.turn !== botSide) {
+      S.botBusy = false;
+      return;
+    }
+
+    w.postMessage({
+      gid: g.id,
+      st: {
+        board: g2.board,
+        turn: botSide,
+        chain: null,
+        quiet: 0,
+        score: g2.score || { w: 0, b: 0 },
+        over: null
+      },
+      nodes: 90000
+    });
+  }, 250);
+}
+
 async function doMove(m) {
   const g = S.g;
   if (!g) return;
@@ -2617,6 +2699,8 @@ async function doMove(m) {
     renderPieces();
     refresh();
   }
+
+  botThink();
 }
 
 async function doOver(m) {
@@ -4449,6 +4533,7 @@ S.tour.noticeDone = false;
 S.tour.noticeTimer = null;
 
 function tourNoticeMaybe(m) {
+  if (typeof TOURNAMENT_UI !== 'undefined' && !TOURNAMENT_UI) return;
   // Мини-app әр ашылғанда бір рет тексереміз
   if (S.tour.noticeDone) return;
   S.tour.noticeDone = true;
@@ -4564,6 +4649,8 @@ function tourMatchTick() {
 }
 
 function tourMatchPopup() {
+  if (typeof TOURNAMENT_UI !== 'undefined' && !TOURNAMENT_UI) return;
+
   const n = $('tourMatch');
   const l = S.tour.lite;
 
@@ -4611,7 +4698,8 @@ function tourMatchPopup() {
   S.tour.matchTimer = setInterval(tourMatchTick, 1000);
 }
 
-$('btnTour').onclick = openTour;
+const TOURNAMENT_UI = false;   // турнир бөлімі өшірулі (true қылса қайта қосылады)
+if (TOURNAMENT_UI && $('btnTour')) $('btnTour').onclick = openTour;
 
 /* ---------- ДАУЫСТЫҚ БАЙЛАНЫС (WebRTC) ---------- */
 
