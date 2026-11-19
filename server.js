@@ -9,6 +9,7 @@ const G = require('./lib/game');
 const { verifyInitData } = require('./lib/telegram');
 const { createShop } = require('./lib/shop');
 const { createTournament } = require('./lib/tournament');
+const botEngine = require('./lib/bot');
 const { t: tx, normLang, detectLang, DEFAULT_LANG } = require('./lib/i18n');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -53,6 +54,14 @@ const REDIS_PREFIX = process.env.REDIS_PREFIX || 'shashka:';
 const GROUPS_FILE = path.join(DATA_DIR, 'groups.json');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 const TOUR_FILE = path.join(DATA_DIR, 'tournament.json');
+const BOT_FILE = path.join(DATA_DIR, 'botwins.json');
+
+// Ботпен ойнау: жеңіс сыйлығы, күніне неше жеңіске дейін койн беріледі, жүріске ойлану уақыты (мс)
+const BOT_REWARD = 250;
+const BOT_DAILY_REWARDS = Number(process.env.BOT_DAILY_REWARDS) || 5;
+const BOT_THINK_MS = Number(process.env.BOT_THINK_MS) || 700;
+const BOT_NAME = 'Бот';
+let botDaily = { day: '', users: {} };
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
@@ -1172,9 +1181,11 @@ async function initStorage() {
       const profileData = await storeLoad('profiles', PROFILES_FILE, {});
       const payRaw = await storeLoad('payments', PAY_FILE, null);
       const tourData = await storeLoad('tournament', TOUR_FILE, null);
+      const botData = await storeLoad('botwins', BOT_FILE, null);
 
       shop = createShop(shopData, saveShop);
       tournament.load(tourData);
+      if (botData && typeof botData === 'object' && botData.users) botDaily = botData;
 
       admins.clear();
       for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
@@ -1560,6 +1571,20 @@ const isVipId = id => {
 };
 
 const pub = u => {
+  if (u && u.bot) {
+    return {
+      id: u.id,
+      name: u.name,
+      avatar: null,
+      admin: false,
+      rk: 0,
+      owner: false,
+      vip: false,
+      skin: null,
+      bot: true
+    };
+  }
+
   const admin = u ? isAdmin(u.id) : false;
   const vip = u ? isVipId(u.id) : false;
 
@@ -1843,6 +1868,7 @@ function gameState(g, uid) {
     t: 'game',
     id: g.id,
     random: Boolean(g.random),
+    bot: Boolean(g.bot),
     you,
     players: {
       w: pub(users.get(g.p.w)),
@@ -1884,6 +1910,157 @@ function removeUserInvite(userId) {
   const code = userInvites.get(userId);
 
   if (code) removeInvite(code);
+}
+
+/* ---------- Бот-қарсылас ---------- */
+
+const botDay = () => new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10);
+
+// Жеңіс үшін койн береді (күніне BOT_DAILY_REWARDS реттен аспайды). Берілген койн санын қайтарады.
+function botRewardFor(id) {
+  const day = botDay();
+
+  if (botDaily.day !== day) botDaily = { day, users: {} };
+
+  const used = botDaily.users[id] || 0;
+
+  if (used >= BOT_DAILY_REWARDS) return 0;
+
+  try {
+    shop.addCoins(id, BOT_REWARD);
+  } catch (e) {
+    console.error('Бот жүлдесі берілмеді:', e.message);
+    return 0;
+  }
+
+  botDaily.users[id] = used + 1;
+  storeSave('botwins', BOT_FILE, botDaily);
+
+  return BOT_REWARD;
+}
+
+// Жүрістен кейінгі жаңартуды екі жаққа жіберу (адам да, бот та осыны қолданады)
+function broadcastStep(g, step) {
+  const base = {
+    t: 'move',
+    step,
+    turn: g.st.turn,
+    score: g.st.score,
+    board: G.view(g.st),
+    chainPos: g.st.chain ? g.st.chain.pos : null
+  };
+
+  for (const id of [g.p.w, g.p.b]) {
+    send(users.get(id), {
+      ...base,
+      legal: legalList(g, sideOfUser(g, id))
+    });
+  }
+
+  sendWatchers(g, { ...base, legal: [] });
+
+  if (g.st.over) {
+    finish(g, g.st.over.winner, g.st.over.reason);
+    return;
+  }
+
+  if (g.st.turn !== g.turnTimerSide) startTurnTimer(g);
+  else sendTurnTimer(g);
+}
+
+function scheduleBot(g, delay) {
+  if (!g || !g.bot) return;
+
+  clearTimeout(g.botTimer);
+  g.botTimer = setTimeout(() => botMove(g), delay);
+
+  if (g.botTimer.unref) g.botTimer.unref();
+}
+
+function botMove(g) {
+  if (!games.has(g.id) || g.st.over || g.st.turn !== g.bot.side) return;
+
+  let steps = null;
+
+  try {
+    const r = botEngine.bestMove(g.st, { ms: BOT_THINK_MS });
+    steps = r && r.steps;
+  } catch (e) {
+    console.error('Бот қатесі:', e.message);
+  }
+
+  if (!steps || !steps.length) {
+    const lm = G.legalMoves(g.st);
+
+    if (!lm.length) return;
+
+    steps = [[lm[0].from, lm[0].to]];
+  }
+
+  playBotSteps(g, steps, 0);
+}
+
+function playBotSteps(g, steps, i) {
+  if (!games.has(g.id) || g.st.over || g.st.turn !== g.bot.side) return;
+
+  const [from, to] = steps[i];
+  const step = G.applyMove(g.st, from, to);
+
+  if (!step) return;
+
+  broadcastStep(g, step);
+
+  if (games.has(g.id) && !g.st.over && step.more && i + 1 < steps.length) {
+    g.botTimer = setTimeout(() => playBotSteps(g, steps, i + 1), 550);
+    if (g.botTimer.unref) g.botTimer.unref();
+  }
+}
+
+function startBotGame(u) {
+  playersDirty();
+  dequeue(u.id);
+  removeUserInvite(u.id);
+  clearPInvitesOf(u.id);
+  unwatch(u);
+
+  const botId = 'bot:' + u.id;
+  const bot = { id: botId, name: BOT_NAME, avatar: null, game: null, ws: null, bot: true };
+
+  users.set(botId, bot);
+
+  const humanWhite = Math.random() < 0.5;
+
+  const g = {
+    id: 'g' + ++gameSeq,
+    p: humanWhite ? { w: u.id, b: botId } : { w: botId, b: u.id },
+    st: G.newGame(),
+    chat: [],
+    timers: {},
+    turnTimer: null,
+    turnDeadline: null,
+    turnTimerSide: null,
+    lastChat: {},
+    groupInfo: null,
+    random: false,
+    waitingForOpponent: false,
+    bot: { id: botId, human: u.id, side: humanWhite ? 'b' : 'w' }
+  };
+
+  games.set(g.id, g);
+
+  stats.totalGames++;
+  saveStats();
+
+  u.game = g.id;
+  bot.game = g.id;
+
+  send(u, gameState(g, u.id));
+
+  startTurnTimer(g);
+
+  if (g.bot.side === 'w') scheduleBot(g, 900);
+
+  return g;
 }
 
 function startGame(a, b, groupInfo = null, random = false) {
@@ -5230,6 +5407,20 @@ function finish(g, winner, reason) {
 
   Object.values(g.timers).forEach(clearTimeout);
 
+  // Бот ойыны: адам жеңсе койн береміз (күндік шектеумен)
+  let botInfo = null;
+
+  if (g.bot) {
+    clearTimeout(g.botTimer);
+
+    const humanSide = g.bot.side === 'w' ? 'b' : 'w';
+    let reward = 0;
+
+    if (winner === humanSide) reward = botRewardFor(g.bot.human);
+
+    botInfo = { bot: true, reward, capped: winner === humanSide && !reward };
+  }
+
   for (const id of [g.p.w, g.p.b]) {
     const u = users.get(id);
 
@@ -5240,9 +5431,18 @@ function finish(g, winner, reason) {
         t: 'over',
         result: winner || 'draw',
         reason,
-        score: g.st.score
+        score: g.st.score,
+        ...(botInfo || {})
       });
     }
+  }
+
+  if (g.bot) {
+    users.delete(g.bot.id);
+
+    const hu = users.get(g.bot.human);
+
+    if (hu && botInfo && botInfo.reward) send(hu, shopMsg(hu.id));
   }
 
   if (g.watchers) {
@@ -6497,6 +6697,14 @@ function handle(u, m) {
       });
     }
 
+    case 'bot_play': {
+      if (u.game && games.has(u.game)) {
+        return send(u, gameState(games.get(u.game), u.id));
+      }
+
+      return startBotGame(u);
+    }
+
     case 'cancel':
       dequeue(u.id);
 
@@ -6662,43 +6870,10 @@ function handle(u, m) {
         return send(u, gameState(g, u.id));
       }
 
-      const base = {
-        t: 'move',
-        step,
-        turn: g.st.turn,
-        score: g.st.score,
-        board: G.view(g.st),
-        chainPos: g.st.chain
-          ? g.st.chain.pos
-          : null
-      };
+      broadcastStep(g, step);
 
-      for (const id of [g.p.w, g.p.b]) {
-        send(users.get(id), {
-          ...base,
-          legal: legalList(
-            g,
-            sideOfUser(g, id)
-          )
-        });
-      }
-
-      sendWatchers(g, { ...base, legal: [] });
-
-      if (g.st.over) {
-        finish(
-          g,
-          g.st.over.winner,
-          g.st.over.reason
-        );
-
-        return;
-      }
-
-      if (g.st.turn !== g.turnTimerSide) {
-        startTurnTimer(g);
-      } else {
-        sendTurnTimer(g);
+      if (g.bot && games.has(g.id) && !g.st.over && g.st.turn === g.bot.side) {
+        scheduleBot(g, 650);
       }
 
       return;
