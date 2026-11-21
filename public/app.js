@@ -2208,10 +2208,12 @@ function startGame(m) {
 
   // Бот ойыны: 🤖 аватары тек боттың жолында (қай жақта екеніне қарамай), ойыншы өз суретін көреді
   const isBot = Boolean(m.bot);
+  ensureBotStyles();
+
   const botRow = (avaId, subId, nameId, u) => {
     const el = $(avaId);
     const nameEl = $(nameId);
-    const old = nameEl.querySelector('.strongbadge');
+    const old = nameEl.querySelector('.strongtag');
 
     if (u && u.bot) {
       el.style.backgroundImage = 'none';
@@ -2222,8 +2224,12 @@ function startGame(m) {
       // Боттың атының қасында қызыл STRONG белгісі
       if (!old) {
         const b = document.createElement('span');
-        b.className = 'strongbadge';
+        b.className = 'strongtag';
         b.textContent = 'STRONG';
+        // АДМИН белгісі сияқты пішін, түсі фиолетовый. Inline стиль: CSS файлы жаңартылмаса да жұмыс істейді
+        b.style.cssText = 'display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;' +
+          'font-size:11px;font-weight:800;vertical-align:middle;color:#fff;letter-spacing:.5px;' +
+          'background:linear-gradient(180deg,#b27cff,#6a2fd6);box-shadow:0 0 10px rgba(150,90,255,.55)';
         nameEl.appendChild(b);
       }
     } else {
@@ -5083,6 +5089,25 @@ function addVipTag(el, p) {
   tag.textContent = 'VIP';
 
   el.append(tag);
+}
+
+// Бот профилінің фиолетовый жарқыл эффектісі (бір рет қосылады)
+function ensureBotStyles() {
+  if (document.getElementById('botStyles')) return;
+
+  const st = document.createElement('style');
+
+  st.id = 'botStyles';
+  st.textContent =
+    '#oppAva.botava,#myAva.botava{background:radial-gradient(circle at 35% 30%,#5b2bb8,#1e0a45) !important;' +
+    'border-color:#a66bff !important;display:flex;align-items:center;justify-content:center;font-size:22px;' +
+    'animation:botpulse 1.8s ease-out infinite}' +
+    '@keyframes botpulse{' +
+    '0%{box-shadow:0 0 0 0 rgba(166,107,255,.65),0 0 14px rgba(166,107,255,.5)}' +
+    '70%{box-shadow:0 0 0 16px rgba(166,107,255,0),0 0 14px rgba(166,107,255,.5)}' +
+    '100%{box-shadow:0 0 0 0 rgba(166,107,255,0),0 0 14px rgba(166,107,255,.5)}}';
+
+  document.head.appendChild(st);
 }
 
 function setGameName(el, p) {
