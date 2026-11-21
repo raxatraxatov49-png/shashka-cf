@@ -1295,3 +1295,50 @@ body {
 .vipprogbar { height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, #f5c542, #ffdf80); transition: width .3s; }
 .vipprogtxt { text-align: center; color: #f5c542; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
 .vipft .vipnote { line-height: 1.35; }
+
+/* VIP хабарлама: орын алмайды (absolute), жоғарыдағы бос жерге қонады, төмендегілер жылжымайды */
+#menu .who { position: relative; }
+.vipban {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(245, 197, 66, .22), rgba(120, 80, 220, .3));
+  border: 1px solid rgba(245, 197, 66, .6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  animation: vbin .4s ease-out both;
+}
+.vbc { font-size: 18px; flex: none; }
+.vbt { flex: 1; min-width: 0; font-weight: 800; font-size: 12.5px; line-height: 1.1; color: #fff; }
+.vbyes {
+  flex: none;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 13px;
+  color: #2b1b00;
+  background: linear-gradient(180deg, #ffd877, #e8a43a);
+  box-shadow: 0 2px 0 #b97d1d;
+}
+.vbyes:active { transform: translateY(1px); box-shadow: 0 1px 0 #b97d1d; }
+.vbx {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+}
+@keyframes vbin { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .vipban { animation: none; } }
