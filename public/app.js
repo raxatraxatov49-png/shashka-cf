@@ -1702,6 +1702,7 @@ function onMsg(m) {
 
       setAva($('meAva'), m.me);
       send({ t: 'players_get' });
+      send({ t: 'rtc_cfg' });
       $('meName').textContent = m.me.name;
       addVipTag($('meName'), m.me);
       $('meAva').classList.toggle('vipf', Boolean(m.me.vip));
@@ -1792,6 +1793,17 @@ function onMsg(m) {
 
     case 'tour_err':
       tourToast(tr({ coins: 'tourErrCoins', full: 'tourErrFull', closed: 'tourErrClosed', opp_busy: 'tourErrBusy', refund: 'tourErrRefund' }[m.code] || 'tourErrClosed'));
+      break;
+
+    case 'rtc_cfg':
+      if (m.iceServers && m.iceServers.length) {
+        S.ice = m.iceServers;
+
+        // Ашық дауыс байланысына да жаңа серверлерді береміз
+        if (S.rtc) {
+          try { S.rtc.pc.setConfiguration({ iceServers: S.ice }); } catch (e) {}
+        }
+      }
       break;
 
     case 'players':
@@ -2196,21 +2208,32 @@ function startGame(m) {
 
   // Бот ойыны: 🤖 аватары тек боттың жолында (қай жақта екеніне қарамай), ойыншы өз суретін көреді
   const isBot = Boolean(m.bot);
-  const botRow = (avaId, subId, u) => {
+  const botRow = (avaId, subId, nameId, u) => {
     const el = $(avaId);
+    const nameEl = $(nameId);
+    const old = nameEl.querySelector('.strongbadge');
 
     if (u && u.bot) {
       el.style.backgroundImage = 'none';
       el.textContent = '🤖';
       el.classList.add('botava');
       $(subId).textContent = tr('botSub');
+
+      // Боттың атының қасында қызыл STRONG белгісі
+      if (!old) {
+        const b = document.createElement('span');
+        b.className = 'strongbadge';
+        b.textContent = 'STRONG';
+        nameEl.appendChild(b);
+      }
     } else {
       el.classList.remove('botava');
+      if (old) old.remove();
     }
   };
 
-  botRow('oppAva', 'oppSub', opp);
-  botRow('myAva', 'mySub', me);
+  botRow('oppAva', 'oppSub', 'oppName', opp);
+  botRow('myAva', 'mySub', 'myName', me);
 
   // Ойыншыға ғана: сыйлық белгісі, чат пен микрофон жасырылады. Қалыпты ойында ештеңе өзгермейді.
   const botPlayer = isBot && !m.spectator;
@@ -2636,7 +2659,8 @@ function botThink() {
         score: g2.score || { w: 0, b: 0 },
         over: null
       },
-      nodes: 90000
+      nodes: 200000,
+      ms: 2500
     });
   }, 250);
 }
@@ -4732,10 +4756,11 @@ function openRtc(m) {
 
   closeRtc();
 
-  const pc = new RTCPeerConnection(RTC_CFG);
+  const pc = new RTCPeerConnection({ iceServers: S.ice || RTC_CFG.iceServers });
   const audio = new Audio();
 
   audio.autoplay = true;
+  audio.volume = 1;
   audio.setAttribute('playsinline', '');
   audio.style.display = 'none';
   document.body.append(audio);
@@ -4756,6 +4781,7 @@ function openRtc(m) {
     audio.srcObject = (e.streams && e.streams[0]) || new MediaStream([e.track]);
     audio.muted = !r.sndOn;
     audio.play().catch(() => {});
+    setTimeout(resumeAudio, 300);
   };
 
   pc.onicecandidate = (e) => {
@@ -4763,6 +4789,8 @@ function openRtc(m) {
   };
 
   pc.onconnectionstatechange = () => {
+    if (S.rtc === r && pc.connectionState === 'connected') resumeAudio();
+
     if (S.rtc === r && r.caller && pc.connectionState === 'failed') {
       pc.createOffer({ iceRestart: true })
         .then((o) => pc.setLocalDescription(o))
@@ -4798,6 +4826,8 @@ function closeRtc() {
   S.rtc = null;
 
   try { if (r.local) r.local.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  try { if (r.raw) r.raw.getTracks().forEach((t) => t.stop()); } catch (e) {}
+  try { if (r.ctx) r.ctx.close(); } catch (e) {}
   try { r.pc.close(); } catch (e) {}
   try { r.audio.pause(); r.audio.srcObject = null; r.audio.remove(); } catch (e) {}
   setAudioSession('playback');
@@ -4881,6 +4911,55 @@ function setAudioSession(type) {
   } catch (e) {}
 }
 
+// Дыбыс блокталып қалмауы үшін: экранға кез келген рет тигенде аудионы қайта қосамыз.
+// (Браузер жүргізушіден әрекет болмай аудионы автоматты ойнатуға рұқсат бермейді,
+// сондықтан тек тыңдап отырған ойыншы дауысты естімей қалатын.)
+function resumeAudio() {
+  const r = S.rtc;
+
+  if (!r) return;
+
+  try {
+    if (r.sndOn && r.audio.muted) r.audio.muted = false;
+    if (r.audio.paused) r.audio.play().catch(() => {});
+  } catch (e) {}
+}
+
+['pointerdown', 'touchend', 'click'].forEach((ev) => {
+  document.addEventListener(ev, resumeAudio, { passive: true, capture: true });
+});
+
+// Өз дауысыңды күшейту: қарсылас қатты естуі үшін. Қауіпсіздік: ctx жұмыс істемесе, қарапайым микрофон қолданылады.
+async function boostMic(ctx, st) {
+  try {
+    if (!ctx) return null;
+
+    await ctx.resume().catch(() => {});
+
+    if (ctx.state !== 'running') return null;
+
+    const src = ctx.createMediaStreamSource(st);
+    const gain = ctx.createGain();
+    const comp = ctx.createDynamicsCompressor();
+    const dest = ctx.createMediaStreamDestination();
+
+    gain.gain.value = 2.2;
+    comp.threshold.value = -22;
+    comp.knee.value = 18;
+    comp.ratio.value = 6;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.25;
+
+    src.connect(gain);
+    gain.connect(comp);
+    comp.connect(dest);
+
+    return dest.stream;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function setMic(on) {
   const r = S.rtc;
 
@@ -4888,6 +4967,20 @@ async function setMic(on) {
 
   if (on) {
     setAudioSession('play-and-record');
+
+    // AudioContext қолданушы басқан сәтте (бірінші await-ке дейін) жасалуы керек
+    if (!r.ctx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+
+        if (AC) {
+          r.ctx = new AC();
+          r.ctx.resume().catch(() => {});
+        }
+      } catch (e) {
+        r.ctx = null;
+      }
+    }
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -4918,7 +5011,15 @@ async function setMic(on) {
         return;
       }
 
-      r.local = st;
+      const boosted = await boostMic(r.ctx, st);
+
+      if (S.rtc !== r) {
+        st.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      r.raw = st;
+      r.local = boosted || st;
       r.micOn = true;
     } catch (e) {
       // Қатенің атын да көрсетеміз, себебін анықтау үшін
@@ -4932,6 +5033,11 @@ async function setMic(on) {
     if (r.local) {
       r.local.getTracks().forEach((t) => t.stop());
       r.local = null;
+    }
+
+    if (r.raw) {
+      r.raw.getTracks().forEach((t) => t.stop());
+      r.raw = null;
     }
 
     setAudioSession('playback');
