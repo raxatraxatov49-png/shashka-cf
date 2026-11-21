@@ -23,21 +23,36 @@ export class Hub extends DurableObject {
       } catch (e) { console.error('process.env set failed:', e && e.message); }
     }
     state.persist = (k, v) => { try { this.ctx.storage.put(k, v); } catch {} };
-    this.ready = new Promise((resolve, reject) => {
-      state.listening = resolve;
-      setTimeout(() => reject(new Error('startup timeout')), 25000);
-    });
-    this.ready.catch(() => {});
+    // Іске қосылу кешіксе де, кейін аяқталғанда DO қалпына келуі үшін ready ешқашан «қате» болмайды.
+    // Күту уақыты әр сұраныста бөлек шектеледі.
+    this.bootAt = Date.now();
+    this.isReady = false;
+    this.ready = new Promise((resolve) => { state.listening = resolve; });
+    this.ready.then(() => { this.isReady = true; this.readyMs = Date.now() - this.bootAt; });
     // server.js ЖОҒАРЫДАҒЫ env орнатылғаннан кейін ғана жүктеледі
     this.boot = import('../server.js').catch(e => { console.error('boot error:', e && e.stack || e); throw e; });
+  }
+
+  async waitReady(ms) {
+    await this.boot;
+    let timer;
+    try {
+      await Promise.race([
+        this.ready,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('startup timeout')), ms); })
+      ]);
+    } finally { clearTimeout(timer); }
   }
 
   async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === '/_debug') {
       let bootErr = null;
-      try { await this.boot; await this.ready; } catch (e) { bootErr = String(e && e.message); }
+      try { await this.waitReady(10000); } catch (e) { bootErr = String(e && e.message); }
       return Response.json({
+        isReady: this.isReady,
+        readyMs: this.readyMs || null,
+        upMs: Date.now() - this.bootAt,
         DEV: process.env.DEV ?? null,
         CF_WORKER: process.env.CF_WORKER ?? null,
         envKeys: Object.keys(process.env).filter(k => !/TOKEN|SECRET|REDIS/i.test(k)),
@@ -49,8 +64,7 @@ export class Hub extends DurableObject {
       });
     }
     try {
-      await this.boot;
-      await this.ready;
+      await this.waitReady(25000);
     } catch (e) {
       return new Response('starting', { status: 503 });
     }
