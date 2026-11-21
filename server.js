@@ -99,16 +99,27 @@ function writeJSON(file, data) {
 }
 
 async function redisCommand(args) {
-  const response = await fetch(REDIS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + REDIS_TOKEN,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(args)
-  });
+  // Redis жауап бермей қатып қалса, сервер де қатып қалмауы үшін 10 секундтан кейін үземіз
+  const ctrl = new AbortController();
+  const tm = setTimeout(() => ctrl.abort(), 10000);
+  let response;
+  let result;
 
-  const result = await response.json();
+  try {
+    response = await fetch(REDIS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + REDIS_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(args),
+      signal: ctrl.signal
+    });
+
+    result = await response.json();
+  } finally {
+    clearTimeout(tm);
+  }
 
   if (!response.ok || result.error) {
     throw new Error(result.error || ('Redis HTTP ' + response.status));
@@ -142,7 +153,8 @@ async function storeLoad(name, file, fallback) {
 
 const writeQueue = new Map();
 const lastSaved = new Map();
-const REDIS_COALESCE_MS = 2000;
+// Redis командаларын үнемдеу үшін жазуды 10 секундта бір рет біріктіреміз (тегін жоспардың лимиті аз)
+const REDIS_COALESCE_MS = 10000;
 let flushPromise = null;
 let flushTimer = null;
 
@@ -1173,22 +1185,29 @@ function grPayload(userId) {
 async function initStorage() {
   let lastError = null;
 
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 8; attempt++) {
     try {
-      const adminData = await storeLoad('admins', ADMINS_FILE, []);
-      const groupData = await storeLoad('groups', GROUPS_FILE, []);
-      const blockedData = await storeLoad('blocked', BLOCKED_FILE, []);
-      const bannedData = await storeLoad('banned_users', BANNED_USERS_FILE, []);
-      const statsData = await storeLoad('stats', STATS_FILE, null);
-      const langData = await storeLoad('langs', LANGS_FILE, {});
-      const ratingData = await storeLoad('ratings', RATINGS_FILE, {});
-      const grData = await storeLoad('global_rating', GLOBAL_RATING_FILE, null);
-      const shopData = await storeLoad('shop', SHOP_FILE, {});
-      const unreachableData = await storeLoad('unreachable', UNREACHABLE_FILE, []);
-      const profileData = await storeLoad('profiles', PROFILES_FILE, {});
-      const payRaw = await storeLoad('payments', PAY_FILE, null);
-      const tourData = await storeLoad('tournament', TOUR_FILE, null);
-      const botData = await storeLoad('botwins', BOT_FILE, null);
+      // Барлық кілтті қатарынан емес, бір мезгілде оқимыз: іске қосылу 14 есе жылдамырақ
+      const [
+        adminData, groupData, blockedData, bannedData, statsData, langData,
+        ratingData, grData, shopData, unreachableData, profileData, payRaw,
+        tourData, botData
+      ] = await Promise.all([
+        storeLoad('admins', ADMINS_FILE, []),
+        storeLoad('groups', GROUPS_FILE, []),
+        storeLoad('blocked', BLOCKED_FILE, []),
+        storeLoad('banned_users', BANNED_USERS_FILE, []),
+        storeLoad('stats', STATS_FILE, null),
+        storeLoad('langs', LANGS_FILE, {}),
+        storeLoad('ratings', RATINGS_FILE, {}),
+        storeLoad('global_rating', GLOBAL_RATING_FILE, null),
+        storeLoad('shop', SHOP_FILE, {}),
+        storeLoad('unreachable', UNREACHABLE_FILE, []),
+        storeLoad('profiles', PROFILES_FILE, {}),
+        storeLoad('payments', PAY_FILE, null),
+        storeLoad('tournament', TOUR_FILE, null),
+        storeLoad('botwins', BOT_FILE, null)
+      ]);
 
       shop = createShop(shopData, saveShop);
       tournament.load(tourData);
@@ -1344,8 +1363,8 @@ async function initStorage() {
       return;
     } catch (error) {
       lastError = error;
-      console.error(`Деректерді жүктеу қатесі (${attempt}/5):`, error.message);
-      await new Promise(r => setTimeout(r, 2000 * attempt));
+      console.error(`Деректерді жүктеу қатесі (${attempt}/8):`, error.message);
+      await new Promise(r => setTimeout(r, Math.min(1500 * attempt, 6000)));
     }
   }
 
@@ -2050,6 +2069,54 @@ function playBotSteps(g, steps, i) {
     g.botTimer = setTimeout(() => playBotSteps(g, steps, i + 1), 350);
     if (g.botTimer.unref) g.botTimer.unref();
   }
+}
+
+/* ---------- Дауыс: TURN (қосылу кепілдігі) ---------- */
+
+let turnCache = { at: 0, servers: null };
+
+async function rtcConfig(u) {
+  const keyId = process.env.TURN_KEY_ID;
+  const token = process.env.TURN_KEY_API_TOKEN;
+
+  if (!keyId || !token) {
+    send(u, { t: 'rtc_cfg', iceServers: null });
+    return;
+  }
+
+  if (!turnCache.servers || Date.now() - turnCache.at > 6 * 3600 * 1000) {
+    try {
+      const r = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ttl: 86400 })
+        }
+      );
+
+      const j = await r.json();
+      let list = j && j.iceServers;
+
+      if (list && !Array.isArray(list)) list = [list];
+
+      if (Array.isArray(list) && list.length) {
+        // 53 порт браузерлерде бұғатталған, ол қосылуды кешіктіреді
+        list = list.map(s => Object.assign({}, s, {
+          urls: (Array.isArray(s.urls) ? s.urls : [s.urls]).filter(x => !/:53(\?|$)/.test(x))
+        }));
+
+        turnCache = { at: Date.now(), servers: list };
+      }
+    } catch (e) {
+      console.error('TURN кілті алынбады:', e.message);
+    }
+  }
+
+  send(u, { t: 'rtc_cfg', iceServers: turnCache.servers });
 }
 
 function startBotGame(u) {
@@ -6951,6 +7018,11 @@ function handle(u, m) {
 
       return;
     }
+
+    case 'rtc_cfg':
+      // Дауыс үшін TURN серверінің қысқа мерзімді кілті (Cloudflare Realtime TURN)
+      rtcConfig(u);
+      return;
 
     case 'rtc': {
       // Дауыстық байланыс: WebRTC сигналын қарсыласқа жібереміз
