@@ -279,6 +279,8 @@ const I18N = {
     "vipLeft": "VIP белсенді: {n} күн қалды",
     "vipPaid": "VIP қосылды! Рахмет 👑",
     "vipInvBtn": "Дос шақыру",
+    "vipBanTxt": "Сен де басқалардай VIP алғың келе ме?",
+    "vipBanYes": "Иә",
     "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бұрын қосылған достар есепке алынбайды, санау 0-ден басталады. 10 күн біткен соң қайтадан 5 дос шақырып, тағы 10 күнге ала аласың.",
     "vipInvProg": "Шақырылды: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -519,6 +521,8 @@ const I18N = {
       "vipLeft": "VIP белсенди: {n} күн қалды",
       "vipPaid": "VIP қосылды! Рахмет 👑",
       "vipInvBtn": "Дос шақырыў",
+      "vipBanTxt": "Сиз де басқалардай VIP алғыңыз келе ме?",
+      "vipBanYes": "Ийә",
       "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бурын қосылған дослар есапқа алынбайды, санаў 0 ден баслананады. 10 күн питкен соң қайтадан 5 дос шақырып, тағы 10 күнге алыўға болады.",
       "vipInvProg": "Шақырылды: {a} / {n}",
       "vipRefGot": "👑 +{n} VIP 🎉",
@@ -759,6 +763,8 @@ const I18N = {
     "vipLeft": "VIP faol: {n} kun qoldi",
     "vipPaid": "VIP yoqildi! Rahmat 👑",
     "vipInvBtn": "Do‘st taklif qilish",
+    "vipBanTxt": "Sen ham boshqalardek VIP olishni xohlaysanmi?",
+    "vipBanYes": "Ha",
     "vipInvNote": "5 ta do‘stingizni taklif qilib, 10 kunga VIP oling. Avval qo‘shilgan do‘stlar hisobga olinmaydi, hisob 0 dan boshlanadi. 10 kun tugagach, yana 5 ta do‘st taklif qilib, yana 10 kunga olishingiz mumkin.",
     "vipInvProg": "Taklif qilindi: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -999,6 +1005,8 @@ const I18N = {
     "vipLeft": "VIP активен: осталось {n} дн.",
     "vipPaid": "VIP подключён! Спасибо 👑",
     "vipInvBtn": "Пригласить друзей",
+    "vipBanTxt": "Хочешь VIP, как у других?",
+    "vipBanYes": "Да",
     "vipInvNote": "Пригласи 5 друзей и получи VIP на 10 дней. Ранее добавленные друзья не учитываются, отсчёт начинается с 0. Когда 10 дней закончатся, можно снова пригласить 5 друзей и получить ещё 10 дней.",
     "vipInvProg": "Приглашено: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -5232,7 +5240,28 @@ function renderVip() {
     addVipTag(name, S.me);
     $('meAva').classList.toggle('vipf', on);
   }
+
+  renderVipBan();
 }
+
+// VIP жоқ адамға жоғарыда хабарлама (орын алмайды, тек shop жүктелген соң)
+function renderVipBan() {
+  const b = $('vipBan');
+
+  if (!b) return;
+
+  b.classList.toggle('hidden', !S.shop || isVip() || Boolean(S.vipBanOff));
+}
+
+$('vipBanYes').onclick = () => {
+  haptic('light');
+  openVip();
+};
+
+$('vipBanX').onclick = () => {
+  S.vipBanOff = true;
+  renderVipBan();
+};
 
 function openVip() {
   send({ t: 'shop_get' });
