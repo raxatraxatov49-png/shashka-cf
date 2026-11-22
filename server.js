@@ -71,6 +71,8 @@ const TOURNAMENT_ENABLED = process.env.TOURNAMENT_ENABLED === '1';
 let botDaily = { day: '', users: {} };
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
+const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
+const CHAT_MUTES_FILE = path.join(DATA_DIR, 'chat-mutes.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 
 const STORAGE_MODE = USE_REDIS
@@ -1246,7 +1248,7 @@ async function initStorage() {
       const [
         adminData, groupData, blockedData, bannedData, statsData, langData,
         ratingData, grData, shopData, unreachableData, profileData, payRaw,
-        tourData, botData
+        tourData, botData, chatData, chatMutesData
       ] = await storeLoadMany([
         ['admins', ADMINS_FILE, []],
         ['groups', GROUPS_FILE, []],
@@ -1261,7 +1263,9 @@ async function initStorage() {
         ['profiles', PROFILES_FILE, {}],
         ['payments', PAY_FILE, null],
         ['tournament', TOUR_FILE, null],
-        ['botwins', BOT_FILE, null]
+        ['botwins', BOT_FILE, null],
+        ['chat', CHAT_FILE, []],
+        ['chat_mutes', CHAT_MUTES_FILE, []]
       ]);
 
       shop = createShop(shopData, saveShop);
@@ -1270,6 +1274,24 @@ async function initStorage() {
 
       admins.clear();
       for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
+
+      chatMsgs = [];
+      chatMutes.clear();
+
+      if (Array.isArray(chatData)) {
+        for (const c of chatData) {
+          if (c && c.id && c.uid && typeof c.t === 'string') chatMsgs.push(c);
+        }
+
+        chatMsgs = chatMsgs.slice(-CHAT_KEEP);
+        chatSeq = chatMsgs.reduce((a, c) => Math.max(a, Number(c.id) || 0), 0);
+      }
+
+      if (Array.isArray(chatMutesData)) {
+        for (const c of chatMutesData) {
+          if (c && c.id) chatMutes.set(String(c.id), { until: Number(c.until) || 0, name: c.name || '', at: Number(c.at) || 0 });
+        }
+      }
 
       bannedUsers.clear();
       if (Array.isArray(bannedData)) {
@@ -6555,6 +6577,264 @@ function playersBaseList() {
   return playersBase;
 }
 
+/* ---------- Шашка чат (жалпы чат) ---------- */
+
+const CHAT_KEEP = 100;     // Redis-те сақталатын соңғы хабар саны
+const CHAT_SHOW = 60;      // кірген адамға көрсетілетін хабар саны
+const CHAT_MAX_LEN = 300;
+const CHAT_GAP_MS = 2000;  // бір адам 2 секундта бір рет жаза алады
+const CHAT_MUTE_OPTIONS = [3600000, 86400000, 604800000, 0]; // 1 сағат, 1 күн, 7 күн, мәңгі
+
+let chatMsgs = [];  // { id, uid, name, avatar, t, at }
+let chatSeq = 0;
+const chatMutes = new Map(); // uid -> { until (0 = мәңгі), name, at }
+let chatSaveTimer = null;
+
+// Redis командасын үнемдеу: хабарлар ең көбі 20 секундта бір рет жазылады
+function saveChatSoon() {
+  if (chatSaveTimer) return;
+
+  chatSaveTimer = setTimeout(() => {
+    chatSaveTimer = null;
+    storeSave('chat', CHAT_FILE, chatMsgs);
+  }, 20000);
+
+  if (chatSaveTimer.unref) chatSaveTimer.unref();
+}
+
+function saveChatMutes() {
+  storeSave(
+    'chat_mutes',
+    CHAT_MUTES_FILE,
+    [...chatMutes.entries()].map(([id, v]) => ({ id, until: v.until, name: v.name, at: v.at }))
+  );
+}
+
+// Тыйым әлі күшінде болса, жазбаны қайтарады
+function chatMuteOf(uid) {
+  const m = chatMutes.get(String(uid));
+
+  if (!m) return null;
+
+  if (m.until && m.until <= Date.now()) {
+    chatMutes.delete(String(uid));
+    saveChatMutes();
+    return null;
+  }
+
+  return m;
+}
+
+function chatView(m, withUid, viewerId) {
+  const v = {
+    id: m.id,
+    name: m.name,
+    avatar: m.avatar || null,
+    vip: isVipId(m.uid),
+    adm: isAdmin(m.uid),
+    mine: Boolean(viewerId) && m.uid === String(viewerId),
+    t: m.t,
+    at: m.at
+  };
+
+  // Telegram ID тек әкімшіге көрінеді (тыйым салу үшін керек)
+  if (withUid) v.uid = m.uid;
+
+  return v;
+}
+
+function chatOnlineCount() {
+  let n = 0;
+
+  for (const x of users.values()) {
+    if (x.ws && !x.bot) n++;
+  }
+
+  return n;
+}
+
+function chatBroadcast(build) {
+  for (const x of users.values()) {
+    if (!x.ws || x.bot) continue;
+
+    send(x, build(isAdmin(x.id), String(x.id)));
+  }
+}
+
+function chatMuteInfo(uid) {
+  const m = chatMuteOf(uid);
+
+  return m ? { until: m.until } : null;
+}
+
+function chatNameOf(uid) {
+  for (let i = chatMsgs.length - 1; i >= 0; i--) {
+    if (chatMsgs[i].uid === uid) return chatMsgs[i].name;
+  }
+
+  const p = profiles.get(uid);
+  const x = users.get(uid);
+
+  return (p && p.name) || (x && x.name) || 'Ойыншы';
+}
+
+function chatGet(u) {
+  const adminView = isAdmin(u.id);
+
+  const list = chatMsgs
+    .filter((m) => !isBanned(m.uid))
+    .slice(-CHAT_SHOW)
+    .map((m) => chatView(m, adminView, u.id));
+
+  send(u, {
+    t: 'chat_hist',
+    list,
+    admin: adminView,
+    canBan: hasPermission(u.id, 'user_ban'),
+    mute: chatMuteInfo(u.id),
+    online: chatOnlineCount()
+  });
+}
+
+function chatSend(u, m) {
+  const admin = isAdmin(u.id);
+
+  if (!admin) {
+    const mm = chatMuteOf(u.id);
+
+    if (mm) {
+      return send(u, { t: 'chat_err', code: 'muted', mute: { until: mm.until } });
+    }
+  }
+
+  const now = Date.now();
+
+  if (!admin && now - (u.chatAt || 0) < CHAT_GAP_MS) {
+    return send(u, { t: 'chat_err', code: 'fast' });
+  }
+
+  const text = String((m && m.text) || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_LEN);
+
+  if (!text) return;
+
+  u.chatAt = now;
+
+  const msg = {
+    id: ++chatSeq,
+    uid: String(u.id),
+    name: String(u.name || 'Ойыншы').slice(0, 40),
+    avatar: u.avatar || null,
+    t: text,
+    at: now
+  };
+
+  chatMsgs.push(msg);
+
+  if (chatMsgs.length > CHAT_KEEP) {
+    chatMsgs.splice(0, chatMsgs.length - CHAT_KEEP);
+  }
+
+  saveChatSoon();
+
+  chatBroadcast((adm, vid) => ({ t: 'chat_msg', m: chatView(msg, adm, vid), online: chatOnlineCount() }));
+}
+
+function chatDel(u, m) {
+  if (!isAdmin(u.id)) return;
+
+  const id = Number(m && m.id);
+  const i = chatMsgs.findIndex((x) => x.id === id);
+
+  if (i < 0) return;
+
+  chatMsgs.splice(i, 1);
+  saveChatSoon();
+
+  chatBroadcast(() => ({ t: 'chat_del', ids: [id] }));
+}
+
+function chatMute(u, m) {
+  if (!isAdmin(u.id)) return;
+
+  const uid = String((m && m.uid) || '');
+  const ms = Number(m && m.ms);
+
+  if (!uid || isAdmin(uid) || !CHAT_MUTE_OPTIONS.includes(ms)) return;
+
+  const now = Date.now();
+
+  chatMutes.set(uid, {
+    until: ms ? now + ms : 0,
+    name: chatNameOf(uid),
+    at: now
+  });
+
+  saveChatMutes();
+
+  const target = users.get(uid);
+
+  if (target && target.ws) {
+    send(target, { t: 'chat_state', mute: chatMuteInfo(uid) });
+  }
+
+  chatBroadcast(() => ({ t: 'chat_sys', name: chatNameOf(uid) }));
+
+  chatMutesList(u);
+}
+
+function chatUnmute(u, m) {
+  if (!isAdmin(u.id)) return;
+
+  const uid = String((m && m.uid) || '');
+
+  if (!chatMutes.delete(uid)) return;
+
+  saveChatMutes();
+
+  const target = users.get(uid);
+
+  if (target && target.ws) {
+    send(target, { t: 'chat_state', mute: null });
+  }
+
+  chatMutesList(u);
+}
+
+function chatMutesList(u) {
+  if (!isAdmin(u.id)) return;
+
+  const list = [];
+
+  for (const [id, v] of chatMutes) {
+    if (!chatMuteOf(id)) continue;
+
+    list.push({ uid: id, name: v.name || chatNameOf(id), until: v.until });
+  }
+
+  send(u, { t: 'chat_mutes', list });
+}
+
+// Қолданбадан мәңгі блоктау (ережеде: сөгіну мен жарнама үшін)
+async function chatBan(u, m) {
+  if (!hasPermission(u.id, 'user_ban')) return;
+
+  const uid = String((m && m.uid) || '');
+
+  if (!uid || isAdmin(uid)) return;
+
+  await banUser(uid);
+
+  const ids = chatMsgs.filter((x) => x.uid === uid).map((x) => x.id);
+
+  if (ids.length) {
+    chatMsgs = chatMsgs.filter((x) => x.uid !== uid);
+    saveChatSoon();
+    chatBroadcast(() => ({ t: 'chat_del', ids }));
+  }
+
+  send(u, { t: 'chat_banned', name: chatNameOf(uid) });
+}
+
 function playersPayload(viewerId) {
   const me = String(viewerId);
   const viewerIsAdmin = isAdmin(me);
@@ -6929,6 +7209,27 @@ function handle(u, m) {
     case 'tour_ready':
       if (!TOURNAMENT_ENABLED) return;
       return tournament.ws(u, m);
+
+    case 'chat_get':
+      return chatGet(u);
+
+    case 'chat_send':
+      return chatSend(u, m);
+
+    case 'chat_del':
+      return chatDel(u, m);
+
+    case 'chat_mute':
+      return chatMute(u, m);
+
+    case 'chat_unmute':
+      return chatUnmute(u, m);
+
+    case 'chat_mutes':
+      return chatMutesList(u);
+
+    case 'chat_ban':
+      return chatBan(u, m);
 
     case 'players_get':
       return send(u, playersPayload(u.id));
