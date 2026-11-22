@@ -186,3 +186,29 @@ body #menu .chat-card .batl::before{display:none}
 /* Профиль карточкасы мен «Кездейсоқ қарсылас» арасын азайтып, төмендегілерді жоғары көтереміз */
 body.has-nav #menu .who{margin-bottom:12px}
 .cht small{color:#cfc6ff}
+
+/* ---- «Кездейсоқ қарсылас»: үлкейтілген карточка (чат карточкасына әсер етпейді) ---- */
+body #menu .card.rand-card{padding:22px 18px 20px;border-radius:28px}
+body #menu .rand-card h2{font-size:27px;margin:0 0 4px}
+body #menu .rand-card p{font-size:13.5px;margin-bottom:16px}
+body #menu .rand-card .batl{height:64px;font-size:18px;letter-spacing:3px;border-radius:20px}
+body #menu .rand-card .batl:not(.busy)::before{width:22px;height:22px}
+body #menu .rand-card .ghost{height:52px}
+body #menu .rand-card .botarea{margin-top:12px}
+body #menu .rand-card .botbtn{height:54px;font-size:15px;border-radius:18px}
+body #menu .rand-card .botnote{font-size:12.5px;margin-top:9px}
+
+/* Чат пен «Ойыншылар» үлкейген карточканың астында сәл төмен орналасады */
+body #menu .chat-card{margin-top:12px}
+
+/* Биіктігі аз телефонда «Ойыншылар» көрінбей қалмауы үшін карточка бұрынғыдай ықшам болады */
+@media (max-height:760px){
+  body #menu .card.rand-card{padding:14px 16px 14px;border-radius:24px}
+  body #menu .rand-card h2{font-size:22px;margin:0 0 2px}
+  body #menu .rand-card p{font-size:12.5px;margin-bottom:10px}
+  body #menu .rand-card .batl{height:46px;font-size:15px;letter-spacing:2px;border-radius:16px}
+  body #menu .rand-card .botarea{margin-top:8px}
+  body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:16px}
+  body #menu .rand-card .botnote{font-size:11.5px;margin-top:6px}
+  body #menu .chat-card{margin-top:10px}
+}
