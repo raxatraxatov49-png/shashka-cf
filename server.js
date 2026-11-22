@@ -1182,10 +1182,24 @@ function grPayload(userId) {
   return out;
 }
 
+// Іске қосылу күйі: /_debug бетінде көрінеді (қатып қалса, себебін көру үшін)
+function bootNote(text) {
+  const g = globalThis;
+
+  g.__bootInfo = g.__bootInfo || [];
+  g.__bootInfo.push({ at: new Date().toISOString().slice(11, 19), text: String(text).slice(0, 200) });
+
+  if (g.__bootInfo.length > 25) g.__bootInfo.shift();
+}
+
 async function initStorage() {
   let lastError = null;
+  const t0 = Date.now();
 
-  for (let attempt = 1; attempt <= 8; attempt++) {
+  bootNote('initStorage басталды (' + (REDIS_URL ? 'Redis' : 'файл') + ')');
+
+  // Cloudflare-де тоқтап қалмай, Redis қалпына келгенше қайталай береміз (әйтпесе сервер мәңгі «starting» күйінде қалады)
+  for (let attempt = 1; process.env.CF_WORKER || attempt <= 8; attempt++) {
     try {
       // Барлық кілтті қатарынан емес, бір мезгілде оқимыз: іске қосылу 14 есе жылдамырақ
       const [
@@ -1348,6 +1362,7 @@ async function initStorage() {
 
       console.log('Сақтау режимі:', STORAGE_MODE);
       console.log(
+        (bootNote(`деректер жүктелді (${Date.now() - t0} мс)`), '') +
         `Жүктелді: топ ${savedGroups.size}, админ ${admins.size}, ` +
         `блок ${blockedGroups.size}, ойыншы ${Object.keys(stats.users).length}`
       );
@@ -1364,12 +1379,14 @@ async function initStorage() {
     } catch (error) {
       lastError = error;
       console.error(`Деректерді жүктеу қатесі (${attempt}/8):`, error.message);
+      bootNote(`Redis қатесі ${attempt}/8: ${error.message}`);
       await new Promise(r => setTimeout(r, Math.min(1500 * attempt, 6000)));
     }
   }
 
   // Бос деректермен іске қосып, барын үстіне жазып жібермеу үшін тоқтатамыз
   console.error('Деректерді жүктеу мүмкін болмады. Сервер тоқтатылды:', lastError && lastError.message);
+  bootNote('ТОҚТАТЫЛДЫ: ' + (lastError && lastError.message));
   process.exit(1);
 }
 
