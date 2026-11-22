@@ -57,6 +57,7 @@ export class Hub extends DurableObject {
         CF_WORKER: process.env.CF_WORKER ?? null,
         envKeys: Object.keys(process.env).filter(k => !/TOKEN|SECRET|REDIS/i.test(k)),
         bootErr,
+        bootInfo: globalThis.__bootInfo || null,
         hasHandler: !!state.handler,
         clients: state.wss ? state.wss.clients.size : null,
         lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
