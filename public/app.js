@@ -281,6 +281,35 @@ const I18N = {
     "vipInvBtn": "Дос шақыру",
     "vipBanTxt": "Сен де басқалардай VIP алғың келе ме?",
     "vipBanYes": "Иә",
+    "chatTitle": "Шашка чат",
+    "chatEnter": "ЧАТҚА КІРУ",
+    "chatOnlineN": "● {n} онлайн",
+    "chatRule": "Бір-біріңді сыйлаңдар. Сөгінген және жарнама таслаған адам навсегда блокталады.",
+    "chatPh": "Хабарлама жазу…",
+    "chatEmpty": "Әзірге хабар жоқ. Біріншілердің бірі болып жаз!",
+    "chatFast": "Хабарды 2 секундта бір рет жіберуге болады",
+    "chatMutedTitle": "🔇 Әкімші сізге чатқа жазуға тыйым салды",
+    "chatMutedLeft": "Тыйым {t} кейін алынады",
+    "chatMutedForever": "Хабарларды оқи аласыз, бірақ жаза алмайсыз",
+    "chatDel": "🗑 Хабарды өшіру",
+    "chatMuteH": "🔇 Чатқа жазуға тыйым салу",
+    "d1h": "1 сағат",
+    "d1d": "1 күн",
+    "d7d": "7 күн",
+    "dFor": "Мәңгі",
+    "chatBanBtn": "⛔ Қолданбадан мәңгі блоктау",
+    "chatBanAsk": "Бұл адамды қолданбадан мәңгі блоктайсыз ба?",
+    "chatMutesBtn": "Тыйым салынғандар",
+    "chatMutesEmpty": "Әзірге ешкім жоқ",
+    "chatUnmute": "Рұқсат беру",
+    "chatForever": "мәңгіге",
+    "chatMuteSys": "🔇 {name} чатқа жазуы шектелді",
+    "chatToastDel": "Хабар өшірілді",
+    "chatToastMute": "Тыйым салынды",
+    "chatToastBan": "Блокталды",
+    "chatUD": "к",
+    "chatUH": "сағ",
+    "chatUM": "мин",
     "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бұрын қосылған достар есепке алынбайды, санау 0-ден басталады. 10 күн біткен соң қайтадан 5 дос шақырып, тағы 10 күнге ала аласың.",
     "vipInvProg": "Шақырылды: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -523,6 +552,35 @@ const I18N = {
       "vipInvBtn": "Дос шақырыў",
       "vipBanTxt": "Сиз де басқалардай VIP алғыңыз келе ме?",
       "vipBanYes": "Ийә",
+      "chatTitle": "Шашка чат",
+      "chatEnter": "ЧАТҚА КИРИУ",
+      "chatOnlineN": "● {n} онлайн",
+      "chatRule": "Бир-бириңизди силаң. Сөгинген ҳәм жарнама таслаған адам навсегда блокланады.",
+      "chatPh": "Хабарлама жазыў…",
+      "chatEmpty": "Әзирше хабар жоқ. Биринши болып жазың!",
+      "chatFast": "Хабарды 2 секундта бир рет жибериўге болады",
+      "chatMutedTitle": "🔇 Админ сизге чатқа жазыўға тыйым салды",
+      "chatMutedLeft": "Тыйым {t} кейин алынады",
+      "chatMutedForever": "Хабарларды оқый аласыз, бирақ жаза алмайсыз",
+      "chatDel": "🗑 Хабарды өшириў",
+      "chatMuteH": "🔇 Чатқа жазыўға тыйым салыў",
+      "d1h": "1 саат",
+      "d1d": "1 күн",
+      "d7d": "7 күн",
+      "dFor": "Мәңги",
+      "chatBanBtn": "⛔ Қолданбадан мәңги блоклаў",
+      "chatBanAsk": "Бул адамды қолданбадан мәңги блоклайсызба?",
+      "chatMutesBtn": "Тыйым салынғанлар",
+      "chatMutesEmpty": "Әзирше ҳеш ким жоқ",
+      "chatUnmute": "Рухсат бериў",
+      "chatForever": "мәңгиге",
+      "chatMuteSys": "🔇 {name}: жазыўға тыйым салынды",
+      "chatToastDel": "Хабар өширилди",
+      "chatToastMute": "Тыйым салынды",
+      "chatToastBan": "Блокланды",
+      "chatUD": "к",
+      "chatUH": "саат",
+      "chatUM": "мин",
       "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бурын қосылған дослар есапқа алынбайды, санаў 0 ден баслананады. 10 күн питкен соң қайтадан 5 дос шақырып, тағы 10 күнге алыўға болады.",
       "vipInvProg": "Шақырылды: {a} / {n}",
       "vipRefGot": "👑 +{n} VIP 🎉",
@@ -765,6 +823,35 @@ const I18N = {
     "vipInvBtn": "Do‘st taklif qilish",
     "vipBanTxt": "Sen ham boshqalardek VIP olishni xohlaysanmi?",
     "vipBanYes": "Ha",
+    "chatTitle": "Shashka chat",
+    "chatEnter": "CHATGA KIRISH",
+    "chatOnlineN": "● {n} onlayn",
+    "chatRule": "Bir-biringizni hurmat qiling. Haqorat va reklama uchun abadiy blok.",
+    "chatPh": "Xabar yozing…",
+    "chatEmpty": "Hozircha xabar yo‘q. Birinchi bo‘lib yozing!",
+    "chatFast": "Xabarni 2 soniyada bir marta yuborish mumkin",
+    "chatMutedTitle": "🔇 Admin sizga chatga yozishni taqiqladi",
+    "chatMutedLeft": "Taqiq {t} dan keyin olinadi",
+    "chatMutedForever": "O‘qiy olasiz, lekin yoza olmaysiz",
+    "chatDel": "🗑 Xabarni o‘chirish",
+    "chatMuteH": "🔇 Chatga yozishni taqiqlash",
+    "d1h": "1 soat",
+    "d1d": "1 kun",
+    "d7d": "7 kun",
+    "dFor": "Abadiy",
+    "chatBanBtn": "⛔ Ilovadan abadiy bloklash",
+    "chatBanAsk": "Bu odamni ilovadan abadiy bloklaysizmi?",
+    "chatMutesBtn": "Chatda taqiqlanganlar",
+    "chatMutesEmpty": "Hozircha hech kim yo‘q",
+    "chatUnmute": "Ruxsat berish",
+    "chatForever": "abadiy",
+    "chatMuteSys": "🔇 {name}: xabar yozish taqiqlandi",
+    "chatToastDel": "Xabar o‘chirildi",
+    "chatToastMute": "Taqiq qo‘yildi",
+    "chatToastBan": "Bloklandi",
+    "chatUD": "k",
+    "chatUH": "s",
+    "chatUM": "daq",
     "vipInvNote": "5 ta do‘stingizni taklif qilib, 10 kunga VIP oling. Avval qo‘shilgan do‘stlar hisobga olinmaydi, hisob 0 dan boshlanadi. 10 kun tugagach, yana 5 ta do‘st taklif qilib, yana 10 kunga olishingiz mumkin.",
     "vipInvProg": "Taklif qilindi: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -1007,6 +1094,35 @@ const I18N = {
     "vipInvBtn": "Пригласить друзей",
     "vipBanTxt": "Хочешь VIP, как у других?",
     "vipBanYes": "Да",
+    "chatTitle": "Шашка чат",
+    "chatEnter": "ВОЙТИ В ЧАТ",
+    "chatOnlineN": "● {n} онлайн",
+    "chatRule": "Уважайте друг друга. За ругань и рекламу — блокировка навсегда.",
+    "chatPh": "Написать сообщение…",
+    "chatEmpty": "Пока нет сообщений. Напиши первым!",
+    "chatFast": "Сообщения можно отправлять раз в 2 секунды",
+    "chatMutedTitle": "🔇 Админ запретил вам писать в чат",
+    "chatMutedLeft": "Запрет снимется через {t}",
+    "chatMutedForever": "Вы можете читать, но не можете писать",
+    "chatDel": "🗑 Удалить сообщение",
+    "chatMuteH": "🔇 Запретить писать в чат",
+    "d1h": "1 час",
+    "d1d": "1 день",
+    "d7d": "7 дней",
+    "dFor": "Навсегда",
+    "chatBanBtn": "⛔ Заблокировать в приложении навсегда",
+    "chatBanAsk": "Заблокировать этого игрока в приложении навсегда?",
+    "chatMutesBtn": "Запрещено писать",
+    "chatMutesEmpty": "Пока никого нет",
+    "chatUnmute": "Разрешить",
+    "chatForever": "навсегда",
+    "chatMuteSys": "🔇 {name}: запрет на сообщения",
+    "chatToastDel": "Сообщение удалено",
+    "chatToastMute": "Запрет установлен",
+    "chatToastBan": "Заблокирован",
+    "chatUD": "д",
+    "chatUH": "ч",
+    "chatUM": "мин",
     "vipInvNote": "Пригласи 5 друзей и получи VIP на 10 дней. Ранее добавленные друзья не учитываются, отсчёт начинается с 0. Когда 10 дней закончатся, можно снова пригласить 5 друзей и получить ещё 10 дней.",
     "vipInvProg": "Приглашено: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -1112,6 +1228,7 @@ function setLang(l) {
   if (S.shop) { renderShop(); renderRefs(); renderVip(); renderDnd(); }
   if (S.rating) renderRating();
   if (S.players) { renderPlayers(); updatePlayersTile(); }
+  if (S.chat && S.chat.loaded) renderChatAll();
   if (S.shop) renderPacks();
 
   if (S.g) {
@@ -1629,13 +1746,15 @@ function show(id) {
   if (id !== 'tour' && typeof stopTourPoll === 'function') stopTourPoll();
   if (id !== 'game') closeRtc();
 
+  chatLayout(id === 'chat');
+
   if (tg) {
     try {
       if (id === 'game') {
         tg.BackButton.show();
         tg.enableClosingConfirmation();
       } else {
-        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins' || id === 'tour'
+        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins' || id === 'tour' || id === 'chat'
           ? tg.BackButton.show()
           : tg.BackButton.hide();
         tg.disableClosingConfirmation();
@@ -1658,6 +1777,7 @@ if (tg) {
         $('rating').classList.contains('active') ||
         ($('rank') && $('rank').classList.contains('active')) ||
         $('players').classList.contains('active') ||
+        $('chat').classList.contains('active') ||
         $('tour').classList.contains('active')
       ) {
         show('menu');
@@ -1711,6 +1831,7 @@ function onMsg(m) {
       setAva($('meAva'), m.me);
       send({ t: 'players_get' });
       send({ t: 'rtc_cfg' });
+      send({ t: 'chat_get' });
       $('meName').textContent = m.me.name;
       addVipTag($('meName'), m.me);
       $('meAva').classList.toggle('vipf', Boolean(m.me.vip));
@@ -1816,6 +1937,17 @@ function onMsg(m) {
 
     case 'players':
       onPlayers(m);
+      break;
+
+    case 'chat_hist':
+    case 'chat_msg':
+    case 'chat_del':
+    case 'chat_state':
+    case 'chat_err':
+    case 'chat_sys':
+    case 'chat_mutes':
+    case 'chat_banned':
+      onChat(m);
       break;
 
     case 'invoice':
@@ -3175,7 +3307,531 @@ $('btnBot').onclick = () => {
 $('btnCancel').onclick = () =>
   send({ t: 'cancel' });
 
-$('btnFriend').onclick = startInviteRoom;
+if ($('btnFriend')) $('btnFriend').onclick = startInviteRoom;
+
+/* ---------- Шашка чат ---------- */
+
+S.chat = {
+  list: [],
+  admin: false,
+  canBan: false,
+  mute: null,
+  unread: 0,
+  online: 0,
+  loaded: false,
+  target: null
+};
+
+const CHAT_COLORS = ['#e0457b', '#3aa0ff', '#27b36a', '#f08a24', '#9b6bff', '#14b8c4'];
+const CHAT_CLIENT_MAX = 150;
+
+var chatCool = false;
+
+function chatColor(name) {
+  let h = 0;
+
+  for (const c of String(name)) h = (h * 31 + c.codePointAt(0)) >>> 0;
+
+  return CHAT_COLORS[h % CHAT_COLORS.length];
+}
+
+function chatTime(ts) {
+  const d = new Date(ts);
+
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function chatNode(m) {
+  const d = document.createElement('div');
+
+  d.className = 'chm' + (m.mine ? ' me' : '');
+  d.dataset.id = m.id;
+
+  if (!m.mine) {
+    const av = document.createElement('div');
+
+    av.className = 'chav';
+    setAva(av, { name: m.name || '?', avatar: m.avatar });
+    d.append(av);
+  }
+
+  const b = document.createElement('div');
+
+  b.className = 'chbub';
+
+  if (!m.mine) {
+    const nm = document.createElement('div');
+
+    nm.className = 'chnm';
+    nm.style.color = chatColor(m.name);
+
+    const n = document.createElement('span');
+
+    n.textContent = m.name;
+    nm.append(n);
+
+    if (m.adm) {
+      const t = document.createElement('span');
+
+      t.className = 'chtag adm';
+      t.textContent = 'АДМИН';
+      nm.append(t);
+    }
+
+    if (m.vip) {
+      const t = document.createElement('span');
+
+      t.className = 'chtag';
+      t.textContent = '👑 VIP';
+      nm.append(t);
+    }
+
+    b.append(nm);
+  }
+
+  const tx = document.createElement('div');
+
+  tx.className = 'chtx';
+  tx.textContent = m.t;
+
+  const tm = document.createElement('div');
+
+  tm.className = 'chtm';
+  tm.textContent = chatTime(m.at);
+
+  b.append(tx, tm);
+  d.append(b);
+
+  return d;
+}
+
+function chatEmptyNode() {
+  const e = document.createElement('div');
+
+  e.className = 'chempty';
+  e.textContent = tr('chatEmpty');
+
+  return e;
+}
+
+function renderChatList(stick) {
+  const l = $('chatList');
+  const near = l.scrollHeight - l.scrollTop - l.clientHeight < 90;
+
+  l.textContent = '';
+
+  if (!S.chat.list.length) {
+    l.append(chatEmptyNode());
+    return;
+  }
+
+  S.chat.list.forEach((m) => l.append(chatNode(m)));
+
+  if (stick || near) l.scrollTop = l.scrollHeight;
+}
+
+function renderChatCard() {
+  const c = S.chat;
+
+  $('chatOnline').textContent = tr('chatOnlineN', { n: c.online || 0 });
+  $('chatHeadOnline').textContent = '● ' + (c.online || 0);
+
+  const last = c.list[c.list.length - 1];
+  const p = $('chatPrev');
+
+  p.textContent = '';
+
+  if (last) {
+    const b = document.createElement('b');
+
+    b.textContent = last.name + ': ';
+    p.append(b, last.t);
+  }
+
+  p.classList.toggle('hidden', !last);
+
+  const bd = $('chatBadge');
+
+  bd.textContent = c.unread > 99 ? '99+' : String(c.unread);
+  bd.classList.toggle('hidden', !c.unread);
+}
+
+function chatLeftText(mute) {
+  if (!mute.until) return tr('chatMutedForever');
+
+  const min = Math.max(1, Math.ceil((mute.until - Date.now()) / 60000));
+  const d = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  const mm = min % 60;
+  const parts = [];
+
+  if (d) parts.push(d + ' ' + tr('chatUD'));
+  if (h) parts.push(h + ' ' + tr('chatUH'));
+  if (!d && mm) parts.push(mm + ' ' + tr('chatUM'));
+
+  return tr('chatMutedLeft', { t: parts.join(' ') });
+}
+
+function renderChatBar() {
+  const c = S.chat;
+
+  if (c.mute && c.mute.until && c.mute.until <= Date.now()) c.mute = null;
+
+  const muted = Boolean(c.mute) && !c.admin;
+
+  $('chatBar').classList.toggle('hidden', muted);
+  $('chatMuted').classList.toggle('hidden', !muted);
+  $('chat').classList.toggle('adm', c.admin);
+  $('chMutesBtn').classList.toggle('hidden', !c.admin);
+  $('chatInp').placeholder = tr('chatPh');
+
+  if (muted) {
+    $('chMutedT').textContent = tr('chatMutedTitle');
+    $('chMutedS').textContent = chatLeftText(c.mute);
+  }
+}
+
+function renderChatAll() {
+  renderChatCard();
+  renderChatBar();
+
+  if (S.chatOpen) renderChatList(false);
+}
+
+function chatAdd(m) {
+  const c = S.chat;
+
+  c.list.push(m);
+
+  if (c.list.length > CHAT_CLIENT_MAX) c.list.splice(0, c.list.length - CHAT_CLIENT_MAX);
+
+  if (S.chatOpen) {
+    const l = $('chatList');
+    const near = l.scrollHeight - l.scrollTop - l.clientHeight < 90;
+    const empty = l.querySelector('.chempty');
+
+    if (empty) empty.remove();
+
+    l.append(chatNode(m));
+
+    if (near || m.mine) l.scrollTop = l.scrollHeight;
+  } else if (!m.mine) {
+    c.unread++;
+  }
+}
+
+// Қолданба экраны мен пернетақта: жазу жолы әрдайым көрінетін болуы үшін
+var chatVvH = 0;
+
+function chatFit() {
+  const el = $('chat');
+  const vv = window.visualViewport;
+
+  if (!el || !vv) return;
+
+  if (!S.chatOpen) {
+    el.style.height = '';
+    el.style.transform = '';
+    chatVvH = 0;
+    return;
+  }
+
+  el.style.height = vv.height + 'px';
+  el.style.transform = vv.offsetTop ? 'translateY(' + vv.offsetTop + 'px)' : '';
+
+  if (chatVvH && Math.abs(chatVvH - vv.height) > 80) {
+    const l = $('chatList');
+
+    l.scrollTop = l.scrollHeight;
+  }
+
+  chatVvH = vv.height;
+}
+
+function chatLayout(on) {
+  S.chatOpen = on;
+
+  if (on) {
+    S.chat.unread = 0;
+    renderChatCard();
+    renderChatBar();
+    renderChatList(true);
+    send({ t: 'chat_get' });
+  } else {
+    closeChatSheets();
+  }
+
+  chatFit();
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', chatFit);
+  window.visualViewport.addEventListener('scroll', chatFit);
+}
+
+function chatSendNow() {
+  const inp = $('chatInp');
+  const t = inp.value.trim();
+
+  if (!t) return;
+
+  if (chatCool) {
+    toast(tr('chatFast'));
+    return;
+  }
+
+  send({ t: 'chat_send', text: t });
+
+  inp.value = '';
+  inp.style.height = '44px';
+  haptic('light');
+
+  if (S.chat.admin) {
+    $('chatSend').disabled = true;
+    return;
+  }
+
+  chatCool = true;
+
+  let s = 2;
+  const b = $('chatSend');
+
+  b.disabled = true;
+  b.textContent = String(s);
+
+  const iv = setInterval(() => {
+    s--;
+
+    if (s > 0) {
+      b.textContent = String(s);
+      return;
+    }
+
+    clearInterval(iv);
+    chatCool = false;
+    b.textContent = '➤';
+    b.disabled = !inp.value.trim();
+  }, 1000);
+}
+
+function closeChatSheets() {
+  $('chOv').classList.remove('show');
+  $('chSheet').classList.remove('show');
+  $('chSheet2').classList.remove('show');
+}
+
+function chatOpenSheet(m) {
+  S.chat.target = m;
+
+  $('chShT').textContent = m.name + ': ' + m.t;
+
+  // Әкімшінің өзіне және басқа әкімшіге тыйым салуға болмайды
+  const canPunish = Boolean(m.uid) && !m.mine && !m.adm;
+
+  $('chMuteBox').classList.toggle('hidden', !canPunish);
+  $('chBan').classList.toggle('hidden', !(canPunish && S.chat.canBan));
+
+  $('chOv').classList.add('show');
+  $('chSheet').classList.add('show');
+}
+
+function renderChatMutes(list) {
+  const box = $('chMList');
+
+  box.textContent = '';
+
+  if (!list.length) {
+    const e = document.createElement('div');
+
+    e.className = 'chsht';
+    e.textContent = tr('chatMutesEmpty');
+    box.append(e);
+    return;
+  }
+
+  list.forEach((x) => {
+    const row = document.createElement('div');
+
+    row.className = 'chmrow';
+
+    const info = document.createElement('span');
+    const nm = document.createElement('b');
+    const sm = document.createElement('small');
+
+    nm.textContent = x.name;
+    sm.textContent = x.until
+      ? chatLeftText({ until: x.until })
+      : tr('chatForever');
+
+    info.append(nm, sm);
+
+    const btn = document.createElement('button');
+
+    btn.type = 'button';
+    btn.textContent = tr('chatUnmute');
+    btn.onclick = () => send({ t: 'chat_unmute', uid: x.uid });
+
+    row.append(info, btn);
+    box.append(row);
+  });
+}
+
+function onChat(m) {
+  const c = S.chat;
+
+  switch (m.t) {
+    case 'chat_hist':
+      c.list = m.list;
+      c.admin = m.admin;
+      c.canBan = m.canBan;
+      c.mute = m.mute;
+      c.online = m.online;
+      c.loaded = true;
+      renderChatAll();
+
+      if (S.chatOpen) renderChatList(true);
+      break;
+
+    case 'chat_msg':
+      c.online = m.online;
+      chatAdd(m.m);
+      renderChatCard();
+      break;
+
+    case 'chat_del': {
+      const ids = new Set(m.ids);
+
+      c.list = c.list.filter((x) => !ids.has(x.id));
+
+      document.querySelectorAll('#chatList .chm').forEach((el) => {
+        if (ids.has(Number(el.dataset.id))) el.remove();
+      });
+
+      if (S.chatOpen && !c.list.length) renderChatList(false);
+
+      renderChatCard();
+      break;
+    }
+
+    case 'chat_state':
+      c.mute = m.mute;
+      renderChatBar();
+      break;
+
+    case 'chat_err':
+      if (m.code === 'muted') {
+        c.mute = m.mute;
+        renderChatBar();
+      } else {
+        toast(tr('chatFast'));
+      }
+      break;
+
+    case 'chat_sys':
+      if (S.chatOpen) {
+        const l = $('chatList');
+        const e = document.createElement('div');
+
+        e.className = 'chsys';
+        e.textContent = tr('chatMuteSys', { name: m.name });
+        l.append(e);
+        l.scrollTop = l.scrollHeight;
+      }
+      break;
+
+    case 'chat_mutes':
+      renderChatMutes(m.list);
+      break;
+
+    case 'chat_banned':
+      toast(tr('chatToastBan'));
+      break;
+  }
+}
+
+$('btnShChat').onclick = () => {
+  haptic('light');
+  show('chat');
+};
+
+$('chatSend').onclick = chatSendNow;
+
+$('chatInp').oninput = () => {
+  const inp = $('chatInp');
+
+  $('chatSend').disabled = chatCool || !inp.value.trim();
+  inp.style.height = '44px';
+  inp.style.height = Math.min(inp.scrollHeight, 96) + 'px';
+};
+
+$('chatInp').onkeydown = (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    chatSendNow();
+  }
+};
+
+$('chatList').onclick = (e) => {
+  if (!S.chat.admin) return;
+
+  const el = e.target.closest('.chm');
+
+  if (!el) return;
+
+  const m = S.chat.list.find((x) => x.id === Number(el.dataset.id));
+
+  if (m) chatOpenSheet(m);
+};
+
+$('chOv').onclick = closeChatSheets;
+
+$('chDel').onclick = () => {
+  const m = S.chat.target;
+
+  if (!m) return;
+
+  send({ t: 'chat_del', id: m.id });
+  closeChatSheets();
+  toast(tr('chatToastDel'));
+};
+
+document.querySelectorAll('#chMuteBox .chdurs button').forEach((b) => {
+  b.onclick = () => {
+    const m = S.chat.target;
+
+    if (!m || !m.uid) return;
+
+    send({ t: 'chat_mute', uid: m.uid, ms: Number(b.dataset.ms) });
+    closeChatSheets();
+    toast(tr('chatToastMute'));
+  };
+});
+
+$('chBan').onclick = () => {
+  const m = S.chat.target;
+
+  if (!m || !m.uid) return;
+
+  if (!window.confirm(tr('chatBanAsk'))) return;
+
+  send({ t: 'chat_ban', uid: m.uid });
+  closeChatSheets();
+};
+
+$('chMutesBtn').onclick = () => {
+  send({ t: 'chat_mutes' });
+  $('chOv').classList.add('show');
+  $('chSheet2').classList.add('show');
+};
+
+// Тыйым уақыты біткенде жазу жолы өздігінен қайта шығады
+setInterval(() => {
+  if (S.chat.mute && S.chat.mute.until && S.chat.mute.until <= Date.now()) {
+    S.chat.mute = null;
+    renderChatBar();
+  }
+}, 15000);
+
 
 $('btnInvCopy').onclick = copyInviteLink;
 $('btnInvShare').onclick = shareInviteLink;
