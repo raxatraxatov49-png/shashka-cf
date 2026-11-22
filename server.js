@@ -6643,14 +6643,17 @@ function chatView(m, withUid, viewerId) {
   return v;
 }
 
-function chatOnlineCount() {
-  let n = 0;
+// Ботта барлығы неше адам бар (қатысушылар). Әр жолы санамау үшін 60 секундқа сақталады
+let chatMembersCache = { n: 0, at: 0 };
 
-  for (const x of users.values()) {
-    if (x.ws && !x.bot) n++;
+function chatMembers() {
+  const now = Date.now();
+
+  if (now - chatMembersCache.at > 60000) {
+    chatMembersCache = { n: Object.keys(stats.users).length, at: now };
   }
 
-  return n;
+  return chatMembersCache.n;
 }
 
 function chatBroadcast(build) {
@@ -6692,7 +6695,7 @@ function chatGet(u) {
     admin: adminView,
     canBan: hasPermission(u.id, 'user_ban'),
     mute: chatMuteInfo(u.id),
-    online: chatOnlineCount()
+    members: chatMembers()
   });
 }
 
@@ -6736,7 +6739,7 @@ function chatSend(u, m) {
 
   saveChatSoon();
 
-  chatBroadcast((adm, vid) => ({ t: 'chat_msg', m: chatView(msg, adm, vid), online: chatOnlineCount() }));
+  chatBroadcast((adm, vid) => ({ t: 'chat_msg', m: chatView(msg, adm, vid) }));
 }
 
 function chatDel(u, m) {
