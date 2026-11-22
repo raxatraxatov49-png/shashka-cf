@@ -151,6 +151,47 @@ async function storeLoad(name, file, fallback) {
   return readJSON(file, fallback);
 }
 
+/* Бастапқы деректі БІР Redis командасымен (MGET) оқимыз: Cloudflare-де бір іске қосылуға
+   берілетін сыртқы сұраныс саны шектеулі, 15 бөлек GET қайталанғанда лимитке тіреліп, сервер мәңгі қатып қалатын */
+async function storeLoadMany(items) {
+  if (!USE_REDIS) {
+    return items.map(([, file, fallback]) => readJSON(file, fallback));
+  }
+
+  const raws = await redisCommand(
+    ['MGET', ...items.map(([name]) => REDIS_PREFIX + name)]
+  );
+
+  const out = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const [name, file, fallback] = items[i];
+    const raw = Array.isArray(raws) ? raws[i] : null;
+
+    if (raw !== null && raw !== undefined) {
+      out.push(JSON.parse(raw));
+      continue;
+    }
+
+    // Redis-те жоқ: жергілікті файл болса, бір рет көшіреміз
+    const local = readJSON(file, undefined);
+
+    if (local !== undefined) {
+      try {
+        await redisCommand(['SET', REDIS_PREFIX + name, JSON.stringify(local)]);
+      } catch (error) {
+        // көшіру сәтсіз болса да, деректі жадыда қолдана береміз
+      }
+
+      out.push(local);
+    } else {
+      out.push(fallback);
+    }
+  }
+
+  return out;
+}
+
 const writeQueue = new Map();
 const lastSaved = new Map();
 // Redis командаларын үнемдеу үшін жазуды 10 секундта бір рет біріктіреміз (тегін жоспардың лимиті аз)
@@ -1206,21 +1247,21 @@ async function initStorage() {
         adminData, groupData, blockedData, bannedData, statsData, langData,
         ratingData, grData, shopData, unreachableData, profileData, payRaw,
         tourData, botData
-      ] = await Promise.all([
-        storeLoad('admins', ADMINS_FILE, []),
-        storeLoad('groups', GROUPS_FILE, []),
-        storeLoad('blocked', BLOCKED_FILE, []),
-        storeLoad('banned_users', BANNED_USERS_FILE, []),
-        storeLoad('stats', STATS_FILE, null),
-        storeLoad('langs', LANGS_FILE, {}),
-        storeLoad('ratings', RATINGS_FILE, {}),
-        storeLoad('global_rating', GLOBAL_RATING_FILE, null),
-        storeLoad('shop', SHOP_FILE, {}),
-        storeLoad('unreachable', UNREACHABLE_FILE, []),
-        storeLoad('profiles', PROFILES_FILE, {}),
-        storeLoad('payments', PAY_FILE, null),
-        storeLoad('tournament', TOUR_FILE, null),
-        storeLoad('botwins', BOT_FILE, null)
+      ] = await storeLoadMany([
+        ['admins', ADMINS_FILE, []],
+        ['groups', GROUPS_FILE, []],
+        ['blocked', BLOCKED_FILE, []],
+        ['banned_users', BANNED_USERS_FILE, []],
+        ['stats', STATS_FILE, null],
+        ['langs', LANGS_FILE, {}],
+        ['ratings', RATINGS_FILE, {}],
+        ['global_rating', GLOBAL_RATING_FILE, null],
+        ['shop', SHOP_FILE, {}],
+        ['unreachable', UNREACHABLE_FILE, []],
+        ['profiles', PROFILES_FILE, {}],
+        ['payments', PAY_FILE, null],
+        ['tournament', TOUR_FILE, null],
+        ['botwins', BOT_FILE, null]
       ]);
 
       shop = createShop(shopData, saveShop);
