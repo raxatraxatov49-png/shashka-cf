@@ -283,7 +283,7 @@ const I18N = {
     "vipBanYes": "Иә",
     "chatTitle": "Шашка чат",
     "chatEnter": "ЧАТҚА КІРУ",
-    "chatOnlineN": "● {n} онлайн",
+    "chatMembersN": "👥 {n} қатысушы",
     "chatRule": "Бір-біріңді сыйлаңдар. Сөгінген және жарнама таслаған адам навсегда блокталады.",
     "chatPh": "Хабарлама жазу…",
     "chatEmpty": "Әзірге хабар жоқ. Біріншілердің бірі болып жаз!",
@@ -554,7 +554,7 @@ const I18N = {
       "vipBanYes": "Ийә",
       "chatTitle": "Шашка чат",
       "chatEnter": "ЧАТҚА КИРИУ",
-      "chatOnlineN": "● {n} онлайн",
+      "chatMembersN": "👥 {n} қатнасыўшы",
       "chatRule": "Бир-бириңизди силаң. Сөгинген ҳәм жарнама таслаған адам навсегда блокланады.",
       "chatPh": "Хабарлама жазыў…",
       "chatEmpty": "Әзирше хабар жоқ. Биринши болып жазың!",
@@ -825,7 +825,7 @@ const I18N = {
     "vipBanYes": "Ha",
     "chatTitle": "Shashka chat",
     "chatEnter": "CHATGA KIRISH",
-    "chatOnlineN": "● {n} onlayn",
+    "chatMembersN": "👥 {n} ishtirokchi",
     "chatRule": "Bir-biringizni hurmat qiling. Haqorat va reklama uchun abadiy blok.",
     "chatPh": "Xabar yozing…",
     "chatEmpty": "Hozircha xabar yo‘q. Birinchi bo‘lib yozing!",
@@ -1096,7 +1096,7 @@ const I18N = {
     "vipBanYes": "Да",
     "chatTitle": "Шашка чат",
     "chatEnter": "ВОЙТИ В ЧАТ",
-    "chatOnlineN": "● {n} онлайн",
+    "chatMembersN": "👥 {n} участников",
     "chatRule": "Уважайте друг друга. За ругань и рекламу — блокировка навсегда.",
     "chatPh": "Написать сообщение…",
     "chatEmpty": "Пока нет сообщений. Напиши первым!",
@@ -3317,7 +3317,7 @@ S.chat = {
   canBan: false,
   mute: null,
   unread: 0,
-  online: 0,
+  members: 0,
   loaded: false,
   target: null
 };
@@ -3433,8 +3433,10 @@ function renderChatList(stick) {
 function renderChatCard() {
   const c = S.chat;
 
-  $('chatOnline').textContent = tr('chatOnlineN', { n: c.online || 0 });
-  $('chatHeadOnline').textContent = '● ' + (c.online || 0);
+  const mem = String(c.members || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  $('chatOnline').textContent = tr('chatMembersN', { n: mem });
+  $('chatHeadOnline').textContent = '👥 ' + mem;
 
   const last = c.list[c.list.length - 1];
   const p = $('chatPrev');
@@ -3685,7 +3687,7 @@ function onChat(m) {
       c.admin = m.admin;
       c.canBan = m.canBan;
       c.mute = m.mute;
-      c.online = m.online;
+      c.members = m.members;
       c.loaded = true;
       renderChatAll();
 
@@ -3693,7 +3695,6 @@ function onChat(m) {
       break;
 
     case 'chat_msg':
-      c.online = m.online;
       chatAdd(m.m);
       renderChatCard();
       break;
