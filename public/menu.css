@@ -188,15 +188,15 @@ body.has-nav #menu .who{margin-bottom:12px}
 .cht small{color:#cfc6ff}
 
 /* ---- «Кездейсоқ қарсылас»: үлкейтілген карточка (чат карточкасына әсер етпейді) ---- */
-body #menu .card.rand-card{padding:22px 18px 20px;border-radius:28px}
-body #menu .rand-card h2{font-size:27px;margin:0 0 4px}
-body #menu .rand-card p{font-size:13.5px;margin-bottom:16px}
-body #menu .rand-card .batl{height:64px;font-size:18px;letter-spacing:3px;border-radius:20px}
-body #menu .rand-card .batl:not(.busy)::before{width:22px;height:22px}
-body #menu .rand-card .ghost{height:52px}
-body #menu .rand-card .botarea{margin-top:12px}
-body #menu .rand-card .botbtn{height:54px;font-size:15px;border-radius:18px}
-body #menu .rand-card .botnote{font-size:12.5px;margin-top:9px}
+body #menu .card.rand-card{padding:18px 16px 16px;border-radius:26px}
+body #menu .rand-card h2{font-size:24px;margin:0 0 3px}
+body #menu .rand-card p{font-size:13px;margin-bottom:12px}
+body #menu .rand-card .batl{height:50px;font-size:16px;letter-spacing:2.5px;border-radius:16px}
+body #menu .rand-card .batl:not(.busy)::before{width:18px;height:18px}
+body #menu .rand-card .ghost{height:46px}
+body #menu .rand-card .botarea{margin-top:9px}
+body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:15px}
+body #menu .rand-card .botnote{font-size:12px;margin-top:7px}
 
 /* Чат пен «Ойыншылар» үлкейген карточканың астында сәл төмен орналасады */
 body #menu .chat-card{margin-top:12px}
