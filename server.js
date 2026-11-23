@@ -1283,7 +1283,10 @@ async function initStorage() {
           if (c && c.id && c.uid && typeof c.t === 'string') chatMsgs.push(c);
         }
 
+        const loadedChatCount = chatMsgs.length;
         chatMsgs = chatMsgs.slice(-CHAT_KEEP);
+        // Ескі хабарларды жадтан ғана емес, Redis/файлдағы сақтаудан да өшіру
+        if (chatMsgs.length !== loadedChatCount) storeSave('chat', CHAT_FILE, chatMsgs);
         chatPrune();
         chatSeq = chatMsgs.reduce((a, c) => Math.max(a, Number(c.id) || 0), 0);
       }
@@ -6581,8 +6584,8 @@ function playersBaseList() {
 /* ---------- Шашка чат (жалпы чат) ---------- */
 
 const CHAT_TTL_MS = 24 * 60 * 60 * 1000; // хабарлар 24 сағаттан кейін өшеді
-const CHAT_KEEP = 2000;    // тек қауіпсіздік шегі (Redis жазбасы тым үлкен болмау үшін)
-const CHAT_PLAYER_SHOW = 100; // қарапайым ойыншы соңғы 100 хабарды көреді
+const CHAT_KEEP = 100;     // серверде тек соңғы 100 хабар сақталады
+const CHAT_PLAYER_SHOW = 100; // админ де, ойыншы да соңғы 100 хабарды көреді
 const CHAT_MAX_LEN = 300;
 const CHAT_GAP_MS = 2000;  // бір адам 2 секундта бір рет жаза алады
 const CHAT_MUTE_OPTIONS = [3600000, 86400000, 604800000, 0]; // 1 сағат, 1 күн, 7 күн, мәңгі
@@ -6720,13 +6723,13 @@ function chatGet(u, req) {
   const adminView = isAdmin(u.id);
   const lite = Boolean(req && req.lite);
 
-  // Әкімші: 24 сағатта жазылған БАРЛЫҚ хабарды көреді.
-  // Қарапайым ойыншы: бұрынғыдай соңғы 100 хабарды көреді.
-  // Қолданба ашылғанда тек соңғы хабар (мәзірдегі көрініс үшін) жіберіледі.
-  let visible = chatMsgs.filter((m) => !isBanned(m.uid));
+  // Админ де, ойыншы да тек соңғы 100 хабарды көреді.
+  // Бұрынғы хабарлар CHAT_KEEP шектеуімен сервердегі сақтаудан да алынады.
+  let visible = chatMsgs
+    .filter((m) => !isBanned(m.uid))
+    .slice(-CHAT_PLAYER_SHOW);
 
-  if (!adminView) visible = visible.slice(-CHAT_PLAYER_SHOW);
-
+  // Қолданба мәзіріндегі қысқа көрініс үшін тек соңғы хабар жіберіледі.
   if (lite) visible = visible.slice(-1);
 
   const list = visible.map((m) => chatView(m, adminView, u.id));
