@@ -3218,9 +3218,23 @@ function addChat(m, silent) {
   const d = document.createElement('div');
 
   d.className = 'm ' + (mine ? 'me' : 'opp');
-  d.textContent = (m.from === 's' || S.g.spectator) && m.name
-    ? m.name + ': ' + m.text
-    : m.text;
+
+  // Жіберушінің аты: сервер name жіберсе — сол, әйтпесе ойыншылар тізімінен аламыз
+  let who = m.name;
+
+  if (!who && (m.from === 'w' || m.from === 'b') && S.g.players && S.g.players[m.from]) {
+    who = S.g.players[m.from].name;
+  }
+
+  if (who && !mine) {
+    const nm = document.createElement('b');
+
+    nm.textContent = (m.from === 's' ? '👀 ' : '') + who;
+    nm.style.cssText = 'display:block;font-size:12px;font-weight:800;margin-bottom:2px;color:' + chatColor(who);
+    d.append(nm);
+  }
+
+  d.append(document.createTextNode(m.text));
 
   box.append(d);
   box.scrollTop = box.scrollHeight;
