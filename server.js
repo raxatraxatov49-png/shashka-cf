@@ -1284,6 +1284,7 @@ async function initStorage() {
         }
 
         chatMsgs = chatMsgs.slice(-CHAT_KEEP);
+        chatPrune();
         chatSeq = chatMsgs.reduce((a, c) => Math.max(a, Number(c.id) || 0), 0);
       }
 
@@ -6579,8 +6580,9 @@ function playersBaseList() {
 
 /* ---------- Шашка чат (жалпы чат) ---------- */
 
-const CHAT_KEEP = 100;     // Redis-те сақталатын соңғы хабар саны
-const CHAT_SHOW = 60;      // кірген адамға көрсетілетін хабар саны
+const CHAT_TTL_MS = 24 * 60 * 60 * 1000; // хабарлар 24 сағаттан кейін өшеді
+const CHAT_KEEP = 2000;    // тек қауіпсіздік шегі (Redis жазбасы тым үлкен болмау үшін)
+const CHAT_PLAYER_SHOW = 100; // қарапайым ойыншы соңғы 100 хабарды көреді
 const CHAT_MAX_LEN = 300;
 const CHAT_GAP_MS = 2000;  // бір адам 2 секундта бір рет жаза алады
 const CHAT_MUTE_OPTIONS = [3600000, 86400000, 604800000, 0]; // 1 сағат, 1 күн, 7 күн, мәңгі
@@ -6611,6 +6613,29 @@ function saveChatMutes() {
 }
 
 // Тыйым әлі күшінде болса, жазбаны қайтарады
+// 24 сағаттан ескі хабарларды өшіреді (және ашық тұрған клиенттерден де алып тастайды)
+function chatPrune() {
+  const limit = Date.now() - CHAT_TTL_MS;
+  const gone = [];
+
+  for (const m of chatMsgs) {
+    if (m.at < limit) gone.push(m.id);
+  }
+
+  if (!gone.length) return;
+
+  chatMsgs = chatMsgs.filter((m) => m.at >= limit);
+  saveChatSoon();
+
+  chatBroadcast(() => ({ t: 'chat_del', ids: gone }));
+}
+
+{
+  const t = setInterval(chatPrune, 5 * 60 * 1000);
+
+  if (t.unref) t.unref();
+}
+
 function chatMuteOf(uid) {
   const m = chatMutes.get(String(uid));
 
@@ -6625,11 +6650,18 @@ function chatMuteOf(uid) {
   return m;
 }
 
+// Хабарда сурет сақталмайды (жазба кішкентай болу үшін), профильден алынады
+function chatAvatarOf(m) {
+  const p = profiles.get(m.uid) || users.get(m.uid) || {};
+
+  return p.avatar || m.avatar || null;
+}
+
 function chatView(m, withUid, viewerId) {
   const v = {
     id: m.id,
     name: m.name,
-    avatar: m.avatar || null,
+    avatar: chatAvatarOf(m),
     vip: isVipId(m.uid),
     adm: isAdmin(m.uid),
     mine: Boolean(viewerId) && m.uid === String(viewerId),
@@ -6681,16 +6713,26 @@ function chatNameOf(uid) {
   return (p && p.name) || (x && x.name) || 'Ойыншы';
 }
 
-function chatGet(u) {
-  const adminView = isAdmin(u.id);
+function chatGet(u, req) {
+  chatPrune();
 
-  const list = chatMsgs
-    .filter((m) => !isBanned(m.uid))
-    .slice(-CHAT_SHOW)
-    .map((m) => chatView(m, adminView, u.id));
+  const adminView = isAdmin(u.id);
+  const lite = Boolean(req && req.lite);
+
+  // Әкімші: 24 сағатта жазылған БАРЛЫҚ хабарды көреді.
+  // Қарапайым ойыншы: бұрынғыдай соңғы 100 хабарды көреді.
+  // Қолданба ашылғанда тек соңғы хабар (мәзірдегі көрініс үшін) жіберіледі.
+  let visible = chatMsgs.filter((m) => !isBanned(m.uid));
+
+  if (!adminView) visible = visible.slice(-CHAT_PLAYER_SHOW);
+
+  if (lite) visible = visible.slice(-1);
+
+  const list = visible.map((m) => chatView(m, adminView, u.id));
 
   send(u, {
     t: 'chat_hist',
+    lite,
     list,
     admin: adminView,
     canBan: hasPermission(u.id, 'user_ban'),
@@ -6700,6 +6742,8 @@ function chatGet(u) {
 }
 
 function chatSend(u, m) {
+  chatPrune();
+
   const admin = isAdmin(u.id);
 
   if (!admin) {
@@ -6726,7 +6770,6 @@ function chatSend(u, m) {
     id: ++chatSeq,
     uid: String(u.id),
     name: String(u.name || 'Ойыншы').slice(0, 40),
-    avatar: u.avatar || null,
     t: text,
     at: now
   };
@@ -7214,7 +7257,7 @@ function handle(u, m) {
       return tournament.ws(u, m);
 
     case 'chat_get':
-      return chatGet(u);
+      return chatGet(u, m);
 
     case 'chat_send':
       return chatSend(u, m);
