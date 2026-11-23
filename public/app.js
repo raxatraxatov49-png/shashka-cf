@@ -284,6 +284,9 @@ const I18N = {
     "chatTitle": "Шашка чат",
     "chatEnter": "ЧАТҚА КІРУ",
     "chatMembersN": "👥 {n} қатысушы",
+    "chatReply": "↩ Жауап беру",
+    "chatReplyGone": "Бастапқы хабар өшірілген",
+    "chatYou": "Сіз",
     "chatRule": "Бір-біріңді сыйлаңдар. Сөгінген және жарнама таслаған адам навсегда блокталады.",
     "chatPh": "Хабарлама жазу…",
     "chatEmpty": "Әзірге хабар жоқ. Біріншілердің бірі болып жаз!",
@@ -555,6 +558,9 @@ const I18N = {
       "chatTitle": "Шашка чат",
       "chatEnter": "ЧАТҚА КИРИУ",
       "chatMembersN": "👥 {n} қатнасыўшы",
+      "chatReply": "↩ Жуўап бериў",
+      "chatReplyGone": "Дәслепки хабар өширилген",
+      "chatYou": "Сиз",
       "chatRule": "Бир-бириңизди силаң. Сөгинген ҳәм жарнама таслаған адам навсегда блокланады.",
       "chatPh": "Хабарлама жазыў…",
       "chatEmpty": "Әзирше хабар жоқ. Биринши болып жазың!",
@@ -826,6 +832,9 @@ const I18N = {
     "chatTitle": "Shashka chat",
     "chatEnter": "CHATGA KIRISH",
     "chatMembersN": "👥 {n} ishtirokchi",
+    "chatReply": "↩ Javob yozish",
+    "chatReplyGone": "Asl xabar o‘chirilgan",
+    "chatYou": "Siz",
     "chatRule": "Bir-biringizni hurmat qiling. Haqorat va reklama uchun abadiy blok.",
     "chatPh": "Xabar yozing…",
     "chatEmpty": "Hozircha xabar yo‘q. Birinchi bo‘lib yozing!",
@@ -1097,6 +1106,9 @@ const I18N = {
     "chatTitle": "Шашка чат",
     "chatEnter": "ВОЙТИ В ЧАТ",
     "chatMembersN": "👥 {n} участников",
+    "chatReply": "↩ Ответить",
+    "chatReplyGone": "Исходное сообщение удалено",
+    "chatYou": "Вы",
     "chatRule": "Уважайте друг друга. За ругань и рекламу — блокировка навсегда.",
     "chatPh": "Написать сообщение…",
     "chatEmpty": "Пока нет сообщений. Напиши первым!",
@@ -3319,7 +3331,8 @@ S.chat = {
   unread: 0,
   members: 0,
   loaded: false,
-  target: null
+  target: null,
+  replyTo: null
 };
 
 const CHAT_COLORS = ['#e0457b', '#3aa0ff', '#27b36a', '#f08a24', '#9b6bff', '#14b8c4'];
@@ -3387,6 +3400,22 @@ function chatNode(m) {
     }
 
     b.append(nm);
+  }
+
+  if (m.reply) {
+    const q = document.createElement('div');
+    const qn = document.createElement('b');
+    const qt = document.createElement('span');
+    const col = m.mine ? '#fff' : chatColor(m.reply.name);
+
+    q.className = 'chq';
+    q.dataset.q = m.reply.id;
+    q.style.borderColor = col;
+    qn.style.color = col;
+    qn.textContent = m.reply.name;
+    qt.textContent = m.reply.t;
+    q.append(qn, qt);
+    b.append(q);
   }
 
   const tx = document.createElement('div');
@@ -3573,6 +3602,7 @@ function chatLayout(on) {
     send({ t: 'chat_get' });
   } else {
     closeChatSheets();
+    chatClearReply();
   }
 
   chatFit();
@@ -3594,7 +3624,8 @@ function chatSendNow() {
     return;
   }
 
-  send({ t: 'chat_send', text: t });
+  send({ t: 'chat_send', text: t, reply: S.chat.replyTo ? S.chat.replyTo.id : undefined });
+  chatClearReply();
 
   inp.value = '';
   inp.style.height = '44px';
@@ -3628,6 +3659,126 @@ function chatSendNow() {
   }, 1000);
 }
 
+function chatEnsureReplyUi() {
+  if ($('chRp')) return;
+
+  const rp = document.createElement('div');
+
+  rp.id = 'chRp';
+  rp.className = 'chrp';
+  rp.innerHTML = '<div class="chrpl"></div><div class="chrpb"><b id="chRpN"></b><span id="chRpT"></span></div>';
+
+  const x = document.createElement('button');
+
+  x.type = 'button';
+  x.textContent = '✕';
+  x.setAttribute('aria-label', 'Close');
+  x.onclick = chatClearReply;
+  rp.append(x);
+
+  $('chatBar').before(rp);
+
+  const rb = document.createElement('button');
+
+  rb.id = 'chRep';
+  rb.type = 'button';
+  rb.className = 'chact';
+  rb.onclick = () => {
+    const m = S.chat.target;
+
+    closeChatSheets();
+
+    if (m) chatSetReply(m);
+  };
+
+  $('chSheet').prepend(rb);
+}
+
+function chatSetReply(m) {
+  chatEnsureReplyUi();
+
+  S.chat.replyTo = { id: m.id, name: m.mine ? tr('chatYou') : m.name, t: m.t };
+
+  $('chRpN').textContent = '↩ ' + S.chat.replyTo.name;
+  $('chRpT').textContent = m.t;
+  $('chRp').classList.add('show');
+  $('chatInp').focus();
+  haptic('light');
+}
+
+function chatClearReply() {
+  S.chat.replyTo = null;
+
+  if ($('chRp')) $('chRp').classList.remove('show');
+}
+
+function chatJump(id) {
+  const el = document.querySelector('#chatList .chm[data-id="' + id + '"]');
+
+  if (!el) {
+    toast(tr('chatReplyGone'));
+    return;
+  }
+
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.classList.add('hl');
+  setTimeout(() => el.classList.remove('hl'), 1400);
+}
+
+var chatSwiped = false;
+
+(function () {
+  const l = $('chatList');
+  let sx = 0, sy = 0, el = null, dx = 0, mv = false;
+
+  l.addEventListener('touchstart', (e) => {
+    const m = e.target.closest('.chm');
+
+    if (!m) return;
+
+    el = m;
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    dx = 0;
+    mv = false;
+  }, { passive: true });
+
+  l.addEventListener('touchmove', (e) => {
+    if (!el) return;
+
+    dx = e.touches[0].clientX - sx;
+
+    const dy = Math.abs(e.touches[0].clientY - sy);
+
+    if (dx > 10 && dy < 25) {
+      mv = true;
+      el.style.transition = 'none';
+      el.style.transform = 'translateX(' + Math.min(dx, 70) + 'px)';
+    }
+  }, { passive: true });
+
+  l.addEventListener('touchend', () => {
+    if (!el) return;
+
+    el.style.transition = 'transform .2s';
+    el.style.transform = '';
+
+    if (mv) {
+      chatSwiped = true;
+
+      if (dx > 55) {
+        const m = S.chat.list.find((x) => x.id === Number(el.dataset.id));
+
+        if (m) chatSetReply(m);
+      }
+
+      setTimeout(() => { chatSwiped = false; }, 350);
+    }
+
+    el = null;
+  });
+})();
+
 function closeChatSheets() {
   $('chOv').classList.remove('show');
   $('chSheet').classList.remove('show');
@@ -3635,6 +3786,9 @@ function closeChatSheets() {
 }
 
 function chatOpenSheet(m) {
+  chatEnsureReplyUi();
+  $('chRep').textContent = tr('chatReply');
+
   S.chat.target = m;
 
   $('chShT').textContent = m.name + ': ' + m.t;
@@ -3788,7 +3942,17 @@ $('chatInp').onkeydown = (e) => {
 };
 
 $('chatList').onclick = (e) => {
-  if (!S.chat.admin) return;
+  const q = e.target.closest('.chq');
+
+  if (q) {
+    chatJump(Number(q.dataset.q));
+    return;
+  }
+
+  if (chatSwiped) {
+    chatSwiped = false;
+    return;
+  }
 
   const el = e.target.closest('.chm');
 
@@ -3796,7 +3960,11 @@ $('chatList').onclick = (e) => {
 
   const m = S.chat.list.find((x) => x.id === Number(el.dataset.id));
 
-  if (m) chatOpenSheet(m);
+  if (!m) return;
+
+  // Әкімші басса мәзір (ішінде «Жауап беру»), ойыншы басса бірден жауап
+  if (S.chat.admin) chatOpenSheet(m);
+  else chatSetReply(m);
 };
 
 $('chOv').onclick = closeChatSheets;
