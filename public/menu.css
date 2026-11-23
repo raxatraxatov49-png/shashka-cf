@@ -212,3 +212,19 @@ body #menu .chat-card{margin-top:12px}
   body #menu .rand-card .botnote{font-size:11.5px;margin-top:6px}
   body #menu .chat-card{margin-top:10px}
 }
+
+/* ---------- Чатта жауап беру ---------- */
+.chm{touch-action:pan-y}
+.chq{border-left:3px solid #f5c542;background:rgba(0,0,0,.22);border-radius:6px;padding:3px 8px;margin:2px 0 4px;font-size:12.5px;cursor:pointer}
+.chq b{display:block;font-size:12px}
+.chq span{display:block;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chm.me .chq{background:rgba(255,255,255,.16)}
+.chm.hl .chbub{animation:chhl 1.3s}
+@keyframes chhl{0%,70%{box-shadow:0 0 0 3px rgba(245,197,66,.85)}100%{box-shadow:0 0 0 0 transparent}}
+.chrp{display:none;flex:none;align-items:center;gap:8px;padding:6px 4px 0}
+.chrp.show{display:flex}
+.chrpl{width:3px;align-self:stretch;background:#f5c542;border-radius:3px}
+.chrpb{flex:1;min-width:0;font-size:12.5px}
+.chrpb b{display:block;color:#f5c542}
+.chrpb span{display:block;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chrp button{flex:none;border:0;background:rgba(255,255,255,.1);color:#fff;width:28px;height:28px;border-radius:50%;font-size:13px}
