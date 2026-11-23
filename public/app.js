@@ -1831,7 +1831,7 @@ function onMsg(m) {
       setAva($('meAva'), m.me);
       send({ t: 'players_get' });
       send({ t: 'rtc_cfg' });
-      send({ t: 'chat_get' });
+      send({ t: 'chat_get', lite: true });
       $('meName').textContent = m.me.name;
       addVipTag($('meName'), m.me);
       $('meAva').classList.toggle('vipf', Boolean(m.me.vip));
@@ -3323,7 +3323,7 @@ S.chat = {
 };
 
 const CHAT_COLORS = ['#e0457b', '#3aa0ff', '#27b36a', '#f08a24', '#9b6bff', '#14b8c4'];
-const CHAT_CLIENT_MAX = 150;
+const CHAT_CLIENT_MAX = 2000;
 
 var chatCool = false;
 
@@ -3505,7 +3505,19 @@ function chatAdd(m) {
 
   c.list.push(m);
 
-  if (c.list.length > CHAT_CLIENT_MAX) c.list.splice(0, c.list.length - CHAT_CLIENT_MAX);
+  // Әкімші 24 сағаттағы бәрін көреді, ойыншы соңғы 100 хабарды ғана
+  const max = c.admin ? CHAT_CLIENT_MAX : 100;
+  const extra = Math.max(0, c.list.length - max);
+
+  if (extra) {
+    c.list.splice(0, extra);
+
+    if (S.chatOpen) {
+      document.querySelectorAll('#chatList .chm').forEach((el, i) => {
+        if (i < extra) el.remove();
+      });
+    }
+  }
 
   if (S.chatOpen) {
     const l = $('chatList');
@@ -3683,6 +3695,9 @@ function onChat(m) {
 
   switch (m.t) {
     case 'chat_hist':
+      // Қолданба ашылғандағы жеңіл жауап, чат ашық тұрса, толық тізімді бұзбасын
+      if (m.lite && S.chatOpen) break;
+
       c.list = m.list;
       c.admin = m.admin;
       c.canBan = m.canBan;
