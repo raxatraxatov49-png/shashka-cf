@@ -126,7 +126,7 @@ body #menu .tile:active{transform:scale(.98)}
 @keyframes botpulse{
   0%{box-shadow:0 0 0 0 rgba(166,107,255,.65),0 0 14px rgba(166,107,255,.5)}
   70%{box-shadow:0 0 0 16px rgba(166,107,255,0),0 0 14px rgba(166,107,255,.5)}
-  100%{box-shadow:0 0 0 0 rgba(166,107,255,0),0 0 14px rgba(166,107,255,.5)}}
+  100%{box-shadow:0 0 0 0 rgba(166,107,255,0),0 0 14px rgba(166,107,255,0)}}
 
 /* ---------- Шашка чат ---------- */
 body #menu .chat-card{padding:14px 16px 16px;margin-top:10px}
@@ -198,9 +198,6 @@ body #menu .rand-card .botarea{margin-top:9px}
 body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:15px}
 body #menu .rand-card .botnote{font-size:12px;margin-top:7px}
 
-/* Чат пен «Ойыншылар» үлкейген карточканың астында сәл төмен орналасады */
-body #menu .chat-card{margin-top:12px}
-
 /* Биіктігі аз телефонда «Ойыншылар» көрінбей қалмауы үшін карточка бұрынғыдай ықшам болады */
 @media (max-height:760px){
   body #menu .card.rand-card{padding:14px 16px 14px;border-radius:24px}
@@ -210,7 +207,6 @@ body #menu .chat-card{margin-top:12px}
   body #menu .rand-card .botarea{margin-top:8px}
   body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:16px}
   body #menu .rand-card .botnote{font-size:11.5px;margin-top:6px}
-  body #menu .chat-card{margin-top:10px}
 }
 
 /* ---------- Чатта жауап беру ---------- */
@@ -228,3 +224,11 @@ body #menu .chat-card{margin-top:12px}
 .chrpb b{display:block;color:#f5c542}
 .chrpb span{display:block;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chrp button{flex:none;border:0;background:rgba(255,255,255,.1);color:#fff;width:28px;height:28px;border-radius:50%;font-size:13px}
+
+/* Telegram тобына қосылу батырмасы — басты мәзір */
+body #menu .group-card{padding:14px 16px;margin-top:10px}
+body #menu .group-link{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;box-sizing:border-box;text-decoration:none;
+  color:#3a2808 !important;
+}
