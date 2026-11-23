@@ -1,5 +1,8 @@
 
 /* ===== Басты мәзір — заманауи дизайн ===== */
+
+/* Артқы фон таза қара (қыс безендірулері алынды) */
+body #menu{background:#000 !important}
 #menu{
   --m-acc:#c9bcff;
   --m-grad:linear-gradient(135deg,#7b6bff 0%,#9d7bff 45%,#d38bff 100%);
@@ -21,6 +24,9 @@ body #menu .coinbtn{
   box-shadow:0 0 18px rgba(255,190,70,.15);
 }
 
+body #menu .who b{font-size:18px}
+body #menu .who small{font-size:14px;color:rgba(230,226,255,.85) !important}
+
 /* Карточкалар */
 body #menu .card::before,
 body #menu .tile::before{display:none}
@@ -34,7 +40,7 @@ body #menu .card.brown{
     radial-gradient(120% 90% at 100% 0%,rgba(211,139,255,.38),transparent 60%),
     radial-gradient(100% 90% at 0% 100%,rgba(90,120,255,.34),transparent 60%),
     linear-gradient(160deg,#241f4d,#141233) !important;
-  box-shadow:0 18px 44px rgba(70,50,180,.38),
+  box-shadow:0 12px 32px rgba(70,50,180,.16),
     inset 0 1px 0 rgba(255,255,255,.18);
 }
 
@@ -46,8 +52,8 @@ body #menu .card h2{
   color:#fff;
 }
 body #menu .card p{
-  color:rgba(230,226,255,.7);
-  font-size:12.5px;
+  color:rgba(236,232,255,.9);
+  font-size:14px;
   line-height:1.3;
   margin-bottom:10px;
 }
@@ -164,10 +170,10 @@ body #menu .tile .tic{
   background:linear-gradient(135deg,rgba(123,107,255,.5),rgba(211,139,255,.3));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
 }
-body #menu .tile b{font-size:18px;color:#fff}
+body #menu .tile b{font-size:19px;color:#fff}
 body #menu .tile small{
-  color:rgba(230,226,255,.6);
-  font-size:13px;
+  color:rgba(230,226,255,.85);
+  font-size:14px;
 }
 body #menu .tile::after{
   content:"›";
@@ -202,9 +208,9 @@ body #menu .tile:active{transform:scale(.98)}
 .botnote{
   margin:6px 2px 0;
   text-align:center;
-  font-size:11.5px;
-  line-height:1.3;
-  color:rgba(230,226,255,.75);
+  font-size:13px;
+  line-height:1.35;
+  color:rgba(236,232,255,.9);
 }
 .botprize{
   display:flex;
@@ -297,14 +303,14 @@ body.has-nav #menu .who{margin-bottom:12px}
 
 /* Кездейсоқ қарсылас */
 body #menu .card.rand-card{padding:18px 16px 16px;border-radius:26px}
-body #menu .rand-card h2{font-size:24px;margin:0 0 3px}
-body #menu .rand-card p{font-size:13px;margin-bottom:12px}
+body #menu .rand-card h2{font-size:26px;margin:0 0 4px}
+body #menu .rand-card p{font-size:14.5px;margin-bottom:13px}
 body #menu .rand-card .batl{height:50px;font-size:16px;letter-spacing:2.5px;border-radius:16px}
 body #menu .rand-card .batl:not(.busy)::before{width:18px;height:18px}
 body #menu .rand-card .ghost{height:46px}
 body #menu .rand-card .botarea{margin-top:9px}
 body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:15px}
-body #menu .rand-card .botnote{font-size:12px;margin-top:7px}
+body #menu .rand-card .botnote{font-size:13px;margin-top:8px}
 
 /* Ойын ішіндегі чатқа арналған жауап беру */
 .chm{touch-action:pan-y}
@@ -349,24 +355,39 @@ body #menu .group-card .group-link:active{transform:scale(.97)}
 body #menu .group-card .group-desc{
   margin:9px 4px 0;
   padding:0 5px;
-  color:rgba(230,226,255,.78);
-  font-size:12px;
+  color:rgba(236,232,255,.92);
+  font-size:13.5px;
   font-weight:600;
-  line-height:1.45;
+  line-height:1.4;
   text-align:center;
+}
+
+@media (max-height:830px){
+  body #menu .card.rand-card{padding:14px 16px 14px}
+  body #menu .rand-card h2{font-size:24px;margin:0 0 2px}
+  body #menu .rand-card p{margin-bottom:10px}
+  body #menu .rand-card .batl{height:46px;font-size:15px;letter-spacing:2px}
+  body #menu .rand-card .botarea{margin-top:8px}
+  body #menu .rand-card .botbtn{height:42px}
+  body #menu .rand-card .botnote{margin-top:6px}
+  body #menu .group-card{margin-top:10px;padding:12px 14px}
+  body #menu .group-card .group-link{min-height:46px}
+  body #menu .group-card .group-desc{margin-top:7px}
+  body #menu .tile{min-height:68px;padding:10px 14px}
+  body #menu .tile .tic{width:44px;height:44px}
 }
 
 @media (max-height:760px){
   body #menu .card.rand-card{padding:14px 16px 14px;border-radius:24px}
   body #menu .rand-card h2{font-size:22px;margin:0 0 2px}
-  body #menu .rand-card p{font-size:12.5px;margin-bottom:10px}
+  body #menu .rand-card p{font-size:13.5px;margin-bottom:10px}
   body #menu .rand-card .batl{height:46px;font-size:15px;letter-spacing:2px;border-radius:16px}
   body #menu .rand-card .botarea{margin-top:8px}
   body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:16px}
-  body #menu .rand-card .botnote{font-size:11.5px;margin-top:6px}
+  body #menu .rand-card .botnote{font-size:12.5px;margin-top:6px}
   body #menu .group-card{margin-top:10px;padding:12px 14px}
   body #menu .group-card .group-link{min-height:46px;font-size:14px}
-  body #menu .group-card .group-desc{font-size:11.5px;margin-top:7px}
+  body #menu .group-card .group-desc{font-size:12.5px;margin-top:7px}
 }
 
 @media (prefers-reduced-motion:reduce){
