@@ -71,8 +71,6 @@ const TOURNAMENT_ENABLED = process.env.TOURNAMENT_ENABLED === '1';
 let botDaily = { day: '', users: {} };
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-groups.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
-const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
-const CHAT_MUTES_FILE = path.join(DATA_DIR, 'chat-mutes.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 
 const STORAGE_MODE = USE_REDIS
@@ -1248,7 +1246,7 @@ async function initStorage() {
       const [
         adminData, groupData, blockedData, bannedData, statsData, langData,
         ratingData, grData, shopData, unreachableData, profileData, payRaw,
-        tourData, botData, chatData, chatMutesData
+        tourData, botData
       ] = await storeLoadMany([
         ['admins', ADMINS_FILE, []],
         ['groups', GROUPS_FILE, []],
@@ -1264,8 +1262,6 @@ async function initStorage() {
         ['payments', PAY_FILE, null],
         ['tournament', TOUR_FILE, null],
         ['botwins', BOT_FILE, null],
-        ['chat', CHAT_FILE, []],
-        ['chat_mutes', CHAT_MUTES_FILE, []]
       ]);
 
       shop = createShop(shopData, saveShop);
@@ -1275,27 +1271,6 @@ async function initStorage() {
       admins.clear();
       for (const [k, v] of parseAdmins(adminData)) admins.set(k, v);
 
-      chatMsgs = [];
-      chatMutes.clear();
-
-      if (Array.isArray(chatData)) {
-        for (const c of chatData) {
-          if (c && c.id && c.uid && typeof c.t === 'string') chatMsgs.push(c);
-        }
-
-        const loadedChatCount = chatMsgs.length;
-        chatMsgs = chatMsgs.slice(-CHAT_KEEP);
-        // Ескі хабарларды жадтан ғана емес, Redis/файлдағы сақтаудан да өшіру
-        if (chatMsgs.length !== loadedChatCount) storeSave('chat', CHAT_FILE, chatMsgs);
-        chatPrune();
-        chatSeq = chatMsgs.reduce((a, c) => Math.max(a, Number(c.id) || 0), 0);
-      }
-
-      if (Array.isArray(chatMutesData)) {
-        for (const c of chatMutesData) {
-          if (c && c.id) chatMutes.set(String(c.id), { until: Number(c.until) || 0, name: c.name || '', at: Number(c.at) || 0 });
-        }
-      }
 
       bannedUsers.clear();
       if (Array.isArray(bannedData)) {
@@ -6581,324 +6556,6 @@ function playersBaseList() {
   return playersBase;
 }
 
-/* ---------- Шашка чат (жалпы чат) ---------- */
-
-const CHAT_TTL_MS = 24 * 60 * 60 * 1000; // хабарлар 24 сағаттан кейін өшеді
-const CHAT_KEEP = 100;     // серверде тек соңғы 100 хабар сақталады
-const CHAT_PLAYER_SHOW = 100; // админ де, ойыншы да соңғы 100 хабарды көреді
-const CHAT_MAX_LEN = 300;
-const CHAT_GAP_MS = 2000;  // бір адам 2 секундта бір рет жаза алады
-const CHAT_MUTE_OPTIONS = [3600000, 86400000, 604800000, 0]; // 1 сағат, 1 күн, 7 күн, мәңгі
-
-let chatMsgs = [];  // { id, uid, name, avatar, t, at }
-let chatSeq = 0;
-const chatMutes = new Map(); // uid -> { until (0 = мәңгі), name, at }
-let chatSaveTimer = null;
-
-// Redis командасын үнемдеу: хабарлар ең көбі 20 секундта бір рет жазылады
-function saveChatSoon() {
-  if (chatSaveTimer) return;
-
-  chatSaveTimer = setTimeout(() => {
-    chatSaveTimer = null;
-    storeSave('chat', CHAT_FILE, chatMsgs);
-  }, 20000);
-
-  if (chatSaveTimer.unref) chatSaveTimer.unref();
-}
-
-function saveChatMutes() {
-  storeSave(
-    'chat_mutes',
-    CHAT_MUTES_FILE,
-    [...chatMutes.entries()].map(([id, v]) => ({ id, until: v.until, name: v.name, at: v.at }))
-  );
-}
-
-// Тыйым әлі күшінде болса, жазбаны қайтарады
-// 24 сағаттан ескі хабарларды өшіреді (және ашық тұрған клиенттерден де алып тастайды)
-function chatPrune() {
-  const limit = Date.now() - CHAT_TTL_MS;
-  const gone = [];
-
-  for (const m of chatMsgs) {
-    if (m.at < limit) gone.push(m.id);
-  }
-
-  if (!gone.length) return;
-
-  chatMsgs = chatMsgs.filter((m) => m.at >= limit);
-  saveChatSoon();
-
-  chatBroadcast(() => ({ t: 'chat_del', ids: gone }));
-}
-
-{
-  const t = setInterval(chatPrune, 5 * 60 * 1000);
-
-  if (t.unref) t.unref();
-}
-
-function chatMuteOf(uid) {
-  const m = chatMutes.get(String(uid));
-
-  if (!m) return null;
-
-  if (m.until && m.until <= Date.now()) {
-    chatMutes.delete(String(uid));
-    saveChatMutes();
-    return null;
-  }
-
-  return m;
-}
-
-// Хабарда сурет сақталмайды (жазба кішкентай болу үшін), профильден алынады
-function chatAvatarOf(m) {
-  const p = profiles.get(m.uid) || users.get(m.uid) || {};
-
-  return p.avatar || m.avatar || null;
-}
-
-function chatView(m, withUid, viewerId) {
-  const v = {
-    id: m.id,
-    name: m.name,
-    avatar: chatAvatarOf(m),
-    vip: isVipId(m.uid),
-    adm: isAdmin(m.uid),
-    mine: Boolean(viewerId) && m.uid === String(viewerId),
-    reply: m.reply || null,
-    t: m.t,
-    at: m.at
-  };
-
-  // Telegram ID тек әкімшіге көрінеді (тыйым салу үшін керек)
-  if (withUid) v.uid = m.uid;
-
-  return v;
-}
-
-// Ботта барлығы неше адам бар (қатысушылар). Әр жолы санамау үшін 60 секундқа сақталады
-let chatMembersCache = { n: 0, at: 0 };
-
-function chatMembers() {
-  const now = Date.now();
-
-  if (now - chatMembersCache.at > 60000) {
-    chatMembersCache = { n: Object.keys(stats.users).length, at: now };
-  }
-
-  return chatMembersCache.n;
-}
-
-function chatBroadcast(build) {
-  for (const x of users.values()) {
-    if (!x.ws || x.bot) continue;
-
-    send(x, build(isAdmin(x.id), String(x.id)));
-  }
-}
-
-function chatMuteInfo(uid) {
-  const m = chatMuteOf(uid);
-
-  return m ? { until: m.until } : null;
-}
-
-function chatNameOf(uid) {
-  for (let i = chatMsgs.length - 1; i >= 0; i--) {
-    if (chatMsgs[i].uid === uid) return chatMsgs[i].name;
-  }
-
-  const p = profiles.get(uid);
-  const x = users.get(uid);
-
-  return (p && p.name) || (x && x.name) || 'Ойыншы';
-}
-
-function chatGet(u, req) {
-  chatPrune();
-
-  const adminView = isAdmin(u.id);
-  const lite = Boolean(req && req.lite);
-
-  // Админ де, ойыншы да тек соңғы 100 хабарды көреді.
-  // Бұрынғы хабарлар CHAT_KEEP шектеуімен сервердегі сақтаудан да алынады.
-  let visible = chatMsgs
-    .filter((m) => !isBanned(m.uid))
-    .slice(-CHAT_PLAYER_SHOW);
-
-  // Қолданба мәзіріндегі қысқа көрініс үшін тек соңғы хабар жіберіледі.
-  if (lite) visible = visible.slice(-1);
-
-  const list = visible.map((m) => chatView(m, adminView, u.id));
-
-  send(u, {
-    t: 'chat_hist',
-    lite,
-    list,
-    admin: adminView,
-    canBan: hasPermission(u.id, 'user_ban'),
-    mute: chatMuteInfo(u.id),
-    members: chatMembers()
-  });
-}
-
-function chatSend(u, m) {
-  chatPrune();
-
-  const admin = isAdmin(u.id);
-
-  if (!admin) {
-    const mm = chatMuteOf(u.id);
-
-    if (mm) {
-      return send(u, { t: 'chat_err', code: 'muted', mute: { until: mm.until } });
-    }
-  }
-
-  const now = Date.now();
-
-  if (!admin && now - (u.chatAt || 0) < CHAT_GAP_MS) {
-    return send(u, { t: 'chat_err', code: 'fast' });
-  }
-
-  const text = String((m && m.text) || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_LEN);
-
-  if (!text) return;
-
-  u.chatAt = now;
-
-  // Жауап беру: бастапқы хабардың аты мен мәтінінің басы көшіріліп сақталады
-  // (бастапқы хабар 24 сағаттан кейін өшсе де, дәйексөз қалады)
-  let reply = null;
-  const rid = Number(m && m.reply);
-
-  if (rid) {
-    const orig = chatMsgs.find((x) => x.id === rid);
-
-    if (orig && !isBanned(orig.uid)) {
-      reply = { id: orig.id, name: orig.name, t: String(orig.t).slice(0, 100) };
-    }
-  }
-
-  const msg = {
-    id: ++chatSeq,
-    uid: String(u.id),
-    name: String(u.name || 'Ойыншы').slice(0, 40),
-    t: text,
-    at: now
-  };
-
-  if (reply) msg.reply = reply;
-
-  chatMsgs.push(msg);
-
-  if (chatMsgs.length > CHAT_KEEP) {
-    chatMsgs.splice(0, chatMsgs.length - CHAT_KEEP);
-  }
-
-  saveChatSoon();
-
-  chatBroadcast((adm, vid) => ({ t: 'chat_msg', m: chatView(msg, adm, vid) }));
-}
-
-function chatDel(u, m) {
-  if (!isAdmin(u.id)) return;
-
-  const id = Number(m && m.id);
-  const i = chatMsgs.findIndex((x) => x.id === id);
-
-  if (i < 0) return;
-
-  chatMsgs.splice(i, 1);
-  saveChatSoon();
-
-  chatBroadcast(() => ({ t: 'chat_del', ids: [id] }));
-}
-
-function chatMute(u, m) {
-  if (!isAdmin(u.id)) return;
-
-  const uid = String((m && m.uid) || '');
-  const ms = Number(m && m.ms);
-
-  if (!uid || isAdmin(uid) || !CHAT_MUTE_OPTIONS.includes(ms)) return;
-
-  const now = Date.now();
-
-  chatMutes.set(uid, {
-    until: ms ? now + ms : 0,
-    name: chatNameOf(uid),
-    at: now
-  });
-
-  saveChatMutes();
-
-  const target = users.get(uid);
-
-  if (target && target.ws) {
-    send(target, { t: 'chat_state', mute: chatMuteInfo(uid) });
-  }
-
-  chatBroadcast(() => ({ t: 'chat_sys', name: chatNameOf(uid) }));
-
-  chatMutesList(u);
-}
-
-function chatUnmute(u, m) {
-  if (!isAdmin(u.id)) return;
-
-  const uid = String((m && m.uid) || '');
-
-  if (!chatMutes.delete(uid)) return;
-
-  saveChatMutes();
-
-  const target = users.get(uid);
-
-  if (target && target.ws) {
-    send(target, { t: 'chat_state', mute: null });
-  }
-
-  chatMutesList(u);
-}
-
-function chatMutesList(u) {
-  if (!isAdmin(u.id)) return;
-
-  const list = [];
-
-  for (const [id, v] of chatMutes) {
-    if (!chatMuteOf(id)) continue;
-
-    list.push({ uid: id, name: v.name || chatNameOf(id), until: v.until });
-  }
-
-  send(u, { t: 'chat_mutes', list });
-}
-
-// Қолданбадан мәңгі блоктау (ережеде: сөгіну мен жарнама үшін)
-async function chatBan(u, m) {
-  if (!hasPermission(u.id, 'user_ban')) return;
-
-  const uid = String((m && m.uid) || '');
-
-  if (!uid || isAdmin(uid)) return;
-
-  await banUser(uid);
-
-  const ids = chatMsgs.filter((x) => x.uid === uid).map((x) => x.id);
-
-  if (ids.length) {
-    chatMsgs = chatMsgs.filter((x) => x.uid !== uid);
-    saveChatSoon();
-    chatBroadcast(() => ({ t: 'chat_del', ids }));
-  }
-
-  send(u, { t: 'chat_banned', name: chatNameOf(uid) });
-}
 
 function playersPayload(viewerId) {
   const me = String(viewerId);
@@ -7275,26 +6932,6 @@ function handle(u, m) {
       if (!TOURNAMENT_ENABLED) return;
       return tournament.ws(u, m);
 
-    case 'chat_get':
-      return chatGet(u, m);
-
-    case 'chat_send':
-      return chatSend(u, m);
-
-    case 'chat_del':
-      return chatDel(u, m);
-
-    case 'chat_mute':
-      return chatMute(u, m);
-
-    case 'chat_unmute':
-      return chatUnmute(u, m);
-
-    case 'chat_mutes':
-      return chatMutesList(u);
-
-    case 'chat_ban':
-      return chatBan(u, m);
 
     case 'players_get':
       return send(u, playersPayload(u.id));
