@@ -6665,6 +6665,7 @@ function chatView(m, withUid, viewerId) {
     vip: isVipId(m.uid),
     adm: isAdmin(m.uid),
     mine: Boolean(viewerId) && m.uid === String(viewerId),
+    reply: m.reply || null,
     t: m.t,
     at: m.at
   };
@@ -6766,6 +6767,19 @@ function chatSend(u, m) {
 
   u.chatAt = now;
 
+  // Жауап беру: бастапқы хабардың аты мен мәтінінің басы көшіріліп сақталады
+  // (бастапқы хабар 24 сағаттан кейін өшсе де, дәйексөз қалады)
+  let reply = null;
+  const rid = Number(m && m.reply);
+
+  if (rid) {
+    const orig = chatMsgs.find((x) => x.id === rid);
+
+    if (orig && !isBanned(orig.uid)) {
+      reply = { id: orig.id, name: orig.name, t: String(orig.t).slice(0, 100) };
+    }
+  }
+
   const msg = {
     id: ++chatSeq,
     uid: String(u.id),
@@ -6773,6 +6787,8 @@ function chatSend(u, m) {
     t: text,
     at: now
   };
+
+  if (reply) msg.reply = reply;
 
   chatMsgs.push(msg);
 
