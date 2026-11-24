@@ -3,6 +3,16 @@ import { DurableObject } from 'cloudflare:workers';
 
 const state = (globalThis.__CF = globalThis.__CF || {});
 
+try {
+  globalThis.addEventListener('unhandledrejection', e => {
+    console.error('unhandledrejection:', (e.reason && e.reason.stack) || e.reason);
+    if (e.preventDefault) e.preventDefault();
+  });
+  globalThis.addEventListener('error', e => {
+    console.error('uncaught:', (e.error && e.error.stack) || e.message);
+  });
+} catch {}
+
 export class Hub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -22,7 +32,13 @@ export class Hub extends DurableObject {
         Object.defineProperty(process, 'env', { value: { ...process.env, ...vars }, writable: true, configurable: true });
       } catch (e) { console.error('process.env set failed:', e && e.message); }
     }
-    state.persist = (k, v) => { try { this.ctx.storage.put(k, v); } catch {} };
+    const lastPut = {};
+    state.persist = (k, v) => {
+      const now = Date.now();
+      if (now - (lastPut[k] || 0) < 60000) return;
+      lastPut[k] = now;
+      try { Promise.resolve(this.ctx.storage.put(k, v)).catch(() => {}); } catch {}
+    };
     // Іске қосылу кешіксе де, кейін аяқталғанда DO қалпына келуі үшін ready ешқашан «қате» болмайды.
     // Күту уақыты әр сұраныста бөлек шектеледі.
     this.bootAt = Date.now();
@@ -124,7 +140,8 @@ export default {
     }
     if (url.pathname === '/app.js' || url.pathname === '/_appcheck') {
       // Клиент қатты кодталған Render хостына қосылады; оны осы Worker-дің өз хостына ауыстырамыз
-      const r = await env.ASSETS.fetch(new Request(new URL('/app.js', url), { headers: request.headers }));
+      const r = await env.ASSETS.fetch(new Request(new URL('/app.js', url)));
+      if (!r.ok) return new Response('app.js unavailable', { status: 502, headers: { 'cache-control': 'no-store' } });
       const original = await r.text();
       const text = original.replace(/(['"`])shashka-mini-app-tp6r\.onrender\.com\1/g, 'location.host');
       if (url.pathname === '/_appcheck') {
