@@ -1,5 +1,4 @@
 
-
 (() => {
 'use strict';
 
@@ -1041,6 +1040,10 @@ Object.assign(I18N.kk, {"botPlay": "БОТПЕН ОЙНАУ", "botNote": "🧠 �
 Object.assign(I18N.ru, {"botPlay": "ИГРАТЬ С БОТОМ", "botNote": "🧠 Бот очень умный: победить его сложно. Победа над ботом: +250 🪙", "botSub": "🧠 Очень умный", "botPrize": "🧠 Бот очень умный · Победа: +250 🪙", "botReward": "+{c} 🪙 за победу над ботом", "botCapped": "Лимит наград на сегодня исчерпан (5 побед в день). Играть можно дальше"});
 Object.assign(I18N.uz, {"botPlay": "BOT BILAN O‘YNASH", "botNote": "🧠 Bot juda aqlli: uni yutish qiyin. Yutsangiz +250 🪙", "botSub": "🧠 Juda aqlli", "botPrize": "🧠 Bot juda aqlli · Yutsangiz +250 🪙", "botReward": "+{c} 🪙 botni yutgani uchun", "botCapped": "Bugungi tanga limiti tugadi (kuniga 5 g‘alaba). O‘ynashda davom etishingiz mumkin"});
 Object.assign(I18N.kaa, {"botPlay": "БОТ ПЕНЕН ОЙНАЎ", "botNote": "🧠 Бот өте ақыллы: оны жеңиў қыйын. Жеңсеңиз +250 🪙", "botSub": "🧠 Өте ақыллы", "botPrize": "🧠 Бот өте ақыллы · Жеңсеңиз +250 🪙", "botReward": "+{c} 🪙 ботты жеңгениңиз ушын", "botCapped": "Бүгинги койн лимити питти (күнине 5 жеңис). Ойнай бериўге болады"});
+Object.assign(I18N.kk, {"gameLost": "Сервер қайта қосылды, ойын табылмады. Жаңадан бастаңыз"});
+Object.assign(I18N.ru, {"gameLost": "Сервер перезапустился, игра не найдена. Начните заново"});
+Object.assign(I18N.uz, {"gameLost": "Server qayta ishga tushdi, o‘yin topilmadi. Qaytadan boshlang"});
+Object.assign(I18N.kaa, {"gameLost": "Сервер қайта қосылды, ойын табылмады. Қайтадан баслаң"});
 
 const tr = (key, vars) => {
   let s = (I18N[LANG] && I18N[LANG][key]);
@@ -1335,6 +1338,25 @@ function startInviteRoom() {
 
   send({ t: 'invite_create' });
   haptic('light');
+}
+
+function gameLostToMenu() {
+  S.g = null;
+  S.q = [];
+  S.busy = false;
+  S.groupWaiting = false;
+  S.groupWaitDeadline = null;
+  S.groupJoinSent = false;
+
+  ['sheetMenu', 'sheetChat', 'result', 'away'].forEach((i) => {
+    const el = $(i);
+
+    if (el) el.classList.add('hidden');
+  });
+
+  applySpectatorUi(false);
+  show('menu');
+  toast(tr('gameLost'));
 }
 
 function leaveInviteRoom() {
@@ -1709,6 +1731,18 @@ function onMsg(m) {
       S.me = m.me;
       if (m.lang) setLang(m.lang);
 
+      // Қайта қосылғаннан кейін сервер ойынды қайтармаса, экранда қатып қалмау үшін мәзірге шығарамыз
+      S.helloAt = Date.now();
+
+      setTimeout(() => {
+        if (
+          S.g && !S.g.over && !S.g.spectator && !S.g.waitingForOpponent &&
+          !S.groupWaiting && !(S.gameSyncAt >= S.helloAt)
+        ) {
+          gameLostToMenu();
+        }
+      }, 2500);
+
       setAva($('meAva'), m.me);
       send({ t: 'players_get' });
       send({ t: 'rtc_cfg' });
@@ -1922,6 +1956,7 @@ function onMsg(m) {
       break;
 
     case 'game':
+      S.gameSyncAt = Date.now();
       startGame(m);
       break;
 
