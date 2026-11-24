@@ -34,18 +34,40 @@ export class Hub extends DurableObject {
         Object.defineProperty(process, 'env', { value: { ...process.env, ...vars }, writable: true, configurable: true });
       } catch (e) { console.error('process.env set failed:', e && e.message); }
     }
+    // АВТОМАТТЫ ҚОРҒАНЫС: Free лимит бітсе, сәтсіз жазу DO-ны құлатып, барлық ойыншыны ағытады.
+    // Сондықтан сақтау қатесін алдын ала оқу арқылы тексереміз: қате болса, лимит жаңарғанша барлық жазуды өткізіп жібереміз.
+    const isQuotaErr = (e) => /Exceeded allowed rows written|rows written/i.test(String((e && e.message) || e));
+    state.storageOff = false;
+    const probe = async () => {
+      try {
+        await this.ctx.storage.get('probe');
+        if (state.storageOff) console.log('storage қайта қосылды (лимит жаңарды)');
+        state.storageOff = false;
+      } catch (e) {
+        if (isQuotaErr(e)) {
+          if (!state.storageOff) console.error('storage өшірілді: лимит бітті, жазулар өткізіліп жатыр');
+          state.storageOff = true;
+        }
+      }
+    };
+    probe();
+    setInterval(probe, 120000);
+    const safePut = (k, v) => {
+      if (state.storageOff) return Promise.resolve();
+      return Promise.resolve(this.ctx.storage.put(k, v)).catch((e) => { if (isQuotaErr(e)) state.storageOff = true; });
+    };
     const lastPut = {};
     state.persist = (k, v) => {
       const now = Date.now();
       if (now - (lastPut[k] || 0) < 600000) return;
       lastPut[k] = now;
-      try { Promise.resolve(this.ctx.storage.put(k, v)).catch(() => {}); } catch {}
+      try { safePut(k, v); } catch {}
     };
     // Ойын күйін сақтау үшін (сервер қайта іске қосылса ойын жалғасады)
-    state.putNow = (k, v) => this.ctx.storage.put(k, v);
-    state.getNow = (k) => this.ctx.storage.get(k);
-    state.delNow = (k) => this.ctx.storage.delete(k);
-    state.listNow = (prefix) => this.ctx.storage.list({ prefix });
+    state.putNow = (k, v) => safePut(k, v);
+    state.getNow = (k) => state.storageOff ? Promise.resolve(undefined) : this.ctx.storage.get(k);
+    state.delNow = () => Promise.resolve();
+    state.listNow = () => Promise.resolve(new Map());
     // Іске қосылу кешіксе де, кейін аяқталғанда DO қалпына келуі үшін ready ешқашан «қате» болмайды.
     // Күту уақыты әр сұраныста бөлек шектеледі.
     this.bootAt = Date.now();
@@ -62,10 +84,11 @@ export class Hub extends DurableObject {
     // лимит бітсе DO мүлде көтерілмей қалады.
     setTimeout(async () => {
       try {
+        if (state.storageOff) return;
         const boots = (await this.ctx.storage.get('boots')) || [];
         boots.push(new Date(this.bootAt).toISOString());
         while (boots.length > 40) boots.shift();
-        await this.ctx.storage.put('boots', boots);
+        if (!state.storageOff) await this.ctx.storage.put('boots', boots);
       } catch {}
     }, 60000);
     // server.js модулі бір isolate ішінде қайта орындалмайды: DO объектісі қайта жасалса,
@@ -112,6 +135,7 @@ export class Hub extends DurableObject {
       let bootErr = null;
       try { await this.waitReady(10000); } catch (e) { bootErr = String(e && e.message); }
       return Response.json({
+        storageOff: !!state.storageOff,
         isReady: this.isReady,
         readyMs: this.readyMs || null,
         upMs: Date.now() - this.bootAt,
