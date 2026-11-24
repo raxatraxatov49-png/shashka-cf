@@ -245,61 +245,14 @@ body #menu .tile:active{transform:scale(.98)}
 }
 
 /* Чаттың жалпы стильдері — ойын ішіндегі чатқа тимеу үшін сақталған */
-.chtop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.chic{flex:none;width:40px;height:40px;border-radius:14px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:22px}
-.cht{flex:1;min-width:0}
-.cht b{display:block;font-size:19px;font-weight:800;color:#fff;line-height:1.1}
-.cht small{color:#7ee6a0;font-weight:800;font-size:12.5px}
-.chbadge{min-width:26px;height:26px;border-radius:13px;background:#ff4d6d;color:#fff;font-size:13px;font-weight:900;display:grid;place-items:center;padding:0 7px}
-.chprev{background:rgba(0,0,0,.25);border-radius:12px;padding:7px 10px;margin-bottom:10px;font-size:13px;color:#e6e1ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chprev b{color:#f5c542}
 
 #chat{padding-left:12px;padding-right:12px;padding-bottom:calc(var(--safe-b,0px) + 8px)}
 #chat .sbar{flex:none;margin-bottom:8px}
-.chhon{margin-left:auto;color:#7ee6a0;font-weight:800;font-size:13px}
-.chmb{width:38px;height:38px;border-radius:12px;background:#222;font-size:18px;border:0;flex:none}
-.chpin{flex:none;display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-radius:12px;background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.3);font-size:12.5px;color:#f0e5d2;margin-bottom:8px;line-height:1.35}
-.chlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:8px;padding:4px 2px 8px;overscroll-behavior:contain}
-.chm{display:flex;gap:8px;max-width:88%;align-items:flex-end}
-.chm.me{align-self:flex-end;flex-direction:row-reverse}
-.chav{flex:none;width:34px;height:34px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-weight:900;font-size:14px;color:#fff;background:#444}
-.chav img{width:100%;height:100%;object-fit:cover;display:block}
-.chbub{background:#242424;border:1px solid rgba(255,255,255,.08);border-radius:16px 16px 16px 4px;padding:7px 11px 5px;min-width:64px}
-.chm.me .chbub{background:linear-gradient(135deg,#5b46c8,#7a5be0);border:0;border-radius:16px 16px 4px 16px;color:#fff}
-.chnm{font-size:12.5px;font-weight:800;margin-bottom:1px;display:flex;gap:5px;align-items:center}
-.chtag{font-size:10px;font-weight:900;border-radius:6px;padding:1px 5px;background:#f5c542;color:#2b1b00}
-.chtag.adm{background:#ff4d6d;color:#fff}
-.chtx{font-weight:600;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
-.chtm{font-size:10.5px;opacity:.55;text-align:right;margin-top:1px}
-.chsys{align-self:center;font-size:12px;color:#a0a0a0;background:rgba(255,255,255,.07);border-radius:99px;padding:3px 12px;text-align:center}
-.chempty{margin:auto;text-align:center;color:#a0a0a0;padding:30px;font-size:14px}
 #chat.adm .chm{cursor:pointer}
 #chat.adm .chbub{outline:1px dashed rgba(245,197,66,.3)}
-.chbar{flex:none;display:flex;gap:8px;align-items:flex-end;padding-top:6px}
-.chbar textarea{flex:1;resize:none;max-height:96px;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.12);background:#1c1c1c;color:#fff;padding:11px 15px;font-family:inherit;font-weight:600;font-size:15px;line-height:1.25;outline:none}
-.chsend{flex:none;width:44px;height:44px;border-radius:50%;background:linear-gradient(180deg,#ffd877,#e8a43a);color:#2b1b00;font-size:18px;font-weight:900;border:0}
-.chsend:disabled{opacity:.4}
-.chmuted{flex:none;text-align:center;padding:12px;border-radius:14px;background:rgba(255,77,109,.12);color:#ff9aae;font-weight:800;font-size:13.5px}
-.chmuted small{display:block;color:#a0a0a0;font-weight:600;margin-top:2px}
-.chov{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:60}
-.chov.show{opacity:1;pointer-events:auto}
-.chsheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:#1b1b1f;border-radius:24px 24px 0 0;padding:16px 16px calc(var(--safe-b,0px) + 18px);transform:translateY(105%);transition:transform .28s ease-out;max-height:80%;overflow-y:auto}
-.chsheet.show{transform:none}
-.chsht{background:rgba(255,255,255,.07);border-radius:12px;padding:8px 12px;font-size:13px;color:#cfcfcf;margin-bottom:10px;max-height:64px;overflow:hidden}
-.chact{display:block;width:100%;border:0;border-radius:14px;padding:13px;margin-bottom:12px;background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-size:15px;text-align:left}
-.chact.del{color:#ff7a93}
-.chact.ban{color:#ff4d6d;margin:12px 0 0;background:rgba(255,77,109,.14)}
-.chsl{font-weight:800;font-size:13px;color:#a0a0a0;margin:2px 2px 8px}
-.chdurs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.chdurs button{border:0;border-radius:12px;padding:11px 4px;background:rgba(255,77,109,.16);color:#ff9aae;font-weight:900;font-size:13px}
-.chmrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}
-.chmrow span{flex:1;font-weight:800}
-.chmrow small{display:block;color:#a0a0a0;font-weight:600}
-.chmrow button{border:0;border-radius:10px;padding:8px 12px;background:rgba(74,222,128,.18);color:#4ade80;font-weight:800}
 
 /* Профиль және карточкалар аралығы */
 body.has-nav #menu .who{margin-bottom:12px}
-.cht small{color:#cfc6ff}
 
 /* Кездейсоқ қарсылас */
 body #menu .card.rand-card{padding:18px 16px 16px;border-radius:26px}
@@ -313,20 +266,7 @@ body #menu .rand-card .botbtn{height:44px;font-size:14px;border-radius:15px}
 body #menu .rand-card .botnote{font-size:13px;margin-top:8px}
 
 /* Ойын ішіндегі чатқа арналған жауап беру */
-.chm{touch-action:pan-y}
-.chq{border-left:3px solid #f5c542;background:rgba(0,0,0,.22);border-radius:6px;padding:3px 8px;margin:2px 0 4px;font-size:12.5px;cursor:pointer}
-.chq b{display:block;font-size:12px}
-.chq span{display:block;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chm.me .chq{background:rgba(255,255,255,.16)}
-.chm.hl .chbub{animation:chhl 1.3s}
 @keyframes chhl{0%,70%{box-shadow:0 0 0 3px rgba(245,197,66,.85)}100%{box-shadow:0 0 0 0 transparent}}
-.chrp{display:none;flex:none;align-items:center;gap:8px;padding:6px 4px 0}
-.chrp.show{display:flex}
-.chrpl{width:3px;align-self:stretch;background:#f5c542;border-radius:3px}
-.chrpb{flex:1;min-width:0;font-size:12.5px}
-.chrpb b{display:block;color:#f5c542}
-.chrpb span{display:block;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chrp button{flex:none;border:0;background:rgba(255,255,255,.1);color:#fff;width:28px;height:28px;border-radius:50%;font-size:13px}
 
 /* Telegram группасына қосылу карточкасы */
 body #menu .group-card{
