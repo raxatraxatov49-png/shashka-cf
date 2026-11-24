@@ -104,6 +104,11 @@ export class Hub extends DurableObject {
   async fetchInner(request) {
     const url = new URL(request.url);
     if (url.pathname === '/_debug') {
+      // Лимит бітсе, сақтау қатесі /_debug-ты құлатпай, мәтін ретінде көрсетілсін
+      const safeGet = async (k) => {
+        try { return await this.ctx.storage.get(k); }
+        catch (e) { return 'STORAGE ERROR: ' + String((e && e.message) || e); }
+      };
       let bootErr = null;
       try { await this.waitReady(10000); } catch (e) { bootErr = String(e && e.message); }
       return Response.json({
@@ -117,11 +122,11 @@ export class Hub extends DurableObject {
         bootInfo: globalThis.__bootInfo || null,
         hasHandler: !!state.handler,
         clients: state.wss ? state.wss.clients.size : null,
-        boots: (await this.ctx.storage.get('boots')) || [],
+        boots: (await safeGet('boots')) || [],
         errs: this.errs,
         closes: state.closeLog || [],
-        lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
-        lastOut: state.lastOut || (await this.ctx.storage.get('lastOut')) || []
+        lastIn: state.lastIn || (await safeGet('lastIn')) || [],
+        lastOut: state.lastOut || (await safeGet('lastOut')) || []
       });
     }
     try {
