@@ -1,4 +1,5 @@
 
+
 (() => {
 'use strict';
 
@@ -281,39 +282,7 @@ const I18N = {
     "vipInvBtn": "Дос шақыру",
     "vipBanTxt": "Сен де басқалардай VIP алғың келе ме?",
     "vipBanYes": "Иә",
-    "chatTitle": "Шашка чат",
-    "chatEnter": "ЧАТҚА КІРУ",
     "joinGroup": "ГРУППАҒА ҚОСЫЛУ",
-    "chatMembersN": "👥 {n} қатысушы",
-    "chatReply": "↩ Жауап беру",
-    "chatReplyGone": "Бастапқы хабар өшірілген",
-    "chatYou": "Сіз",
-    "chatRule": "Бір-біріңді сыйлаңдар. Сөгінген және жарнама таслаған адам навсегда блокталады.",
-    "chatPh": "Хабарлама жазу…",
-    "chatEmpty": "Әзірге хабар жоқ. Біріншілердің бірі болып жаз!",
-    "chatFast": "Хабарды 2 секундта бір рет жіберуге болады",
-    "chatMutedTitle": "🔇 Әкімші сізге чатқа жазуға тыйым салды",
-    "chatMutedLeft": "Тыйым {t} кейін алынады",
-    "chatMutedForever": "Хабарларды оқи аласыз, бірақ жаза алмайсыз",
-    "chatDel": "🗑 Хабарды өшіру",
-    "chatMuteH": "🔇 Чатқа жазуға тыйым салу",
-    "d1h": "1 сағат",
-    "d1d": "1 күн",
-    "d7d": "7 күн",
-    "dFor": "Мәңгі",
-    "chatBanBtn": "⛔ Қолданбадан мәңгі блоктау",
-    "chatBanAsk": "Бұл адамды қолданбадан мәңгі блоктайсыз ба?",
-    "chatMutesBtn": "Тыйым салынғандар",
-    "chatMutesEmpty": "Әзірге ешкім жоқ",
-    "chatUnmute": "Рұқсат беру",
-    "chatForever": "мәңгіге",
-    "chatMuteSys": "🔇 {name} чатқа жазуы шектелді",
-    "chatToastDel": "Хабар өшірілді",
-    "chatToastMute": "Тыйым салынды",
-    "chatToastBan": "Блокталды",
-    "chatUD": "к",
-    "chatUH": "сағ",
-    "chatUM": "мин",
     "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бұрын қосылған достар есепке алынбайды, санау 0-ден басталады. 10 күн біткен соң қайтадан 5 дос шақырып, тағы 10 күнге ала аласың.",
     "vipInvProg": "Шақырылды: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -556,39 +525,7 @@ const I18N = {
       "vipInvBtn": "Дос шақырыў",
       "vipBanTxt": "Сиз де басқалардай VIP алғыңыз келе ме?",
       "vipBanYes": "Ийә",
-      "chatTitle": "Шашка чат",
-      "chatEnter": "ЧАТҚА КИРИУ",
     "joinGroup": "TOPQA QOSILIW",
-      "chatMembersN": "👥 {n} қатнасыўшы",
-      "chatReply": "↩ Жуўап бериў",
-      "chatReplyGone": "Дәслепки хабар өширилген",
-      "chatYou": "Сиз",
-      "chatRule": "Бир-бириңизди силаң. Сөгинген ҳәм жарнама таслаған адам навсегда блокланады.",
-      "chatPh": "Хабарлама жазыў…",
-      "chatEmpty": "Әзирше хабар жоқ. Биринши болып жазың!",
-      "chatFast": "Хабарды 2 секундта бир рет жибериўге болады",
-      "chatMutedTitle": "🔇 Админ сизге чатқа жазыўға тыйым салды",
-      "chatMutedLeft": "Тыйым {t} кейин алынады",
-      "chatMutedForever": "Хабарларды оқый аласыз, бирақ жаза алмайсыз",
-      "chatDel": "🗑 Хабарды өшириў",
-      "chatMuteH": "🔇 Чатқа жазыўға тыйым салыў",
-      "d1h": "1 саат",
-      "d1d": "1 күн",
-      "d7d": "7 күн",
-      "dFor": "Мәңги",
-      "chatBanBtn": "⛔ Қолданбадан мәңги блоклаў",
-      "chatBanAsk": "Бул адамды қолданбадан мәңги блоклайсызба?",
-      "chatMutesBtn": "Тыйым салынғанлар",
-      "chatMutesEmpty": "Әзирше ҳеш ким жоқ",
-      "chatUnmute": "Рухсат бериў",
-      "chatForever": "мәңгиге",
-      "chatMuteSys": "🔇 {name}: жазыўға тыйым салынды",
-      "chatToastDel": "Хабар өширилди",
-      "chatToastMute": "Тыйым салынды",
-      "chatToastBan": "Блокланды",
-      "chatUD": "к",
-      "chatUH": "саат",
-      "chatUM": "мин",
       "vipInvNote": "5 досыңды шақырып, 10 күнге VIP ал. Бурын қосылған дослар есапқа алынбайды, санаў 0 ден баслананады. 10 күн питкен соң қайтадан 5 дос шақырып, тағы 10 күнге алыўға болады.",
       "vipInvProg": "Шақырылды: {a} / {n}",
       "vipRefGot": "👑 +{n} VIP 🎉",
@@ -831,39 +768,7 @@ const I18N = {
     "vipInvBtn": "Do‘st taklif qilish",
     "vipBanTxt": "Sen ham boshqalardek VIP olishni xohlaysanmi?",
     "vipBanYes": "Ha",
-    "chatTitle": "Shashka chat",
-    "chatEnter": "CHATGA KIRISH",
     "joinGroup": "GURUHGA QO‘SHILISH",
-    "chatMembersN": "👥 {n} ishtirokchi",
-    "chatReply": "↩ Javob yozish",
-    "chatReplyGone": "Asl xabar o‘chirilgan",
-    "chatYou": "Siz",
-    "chatRule": "Bir-biringizni hurmat qiling. Haqorat va reklama uchun abadiy blok.",
-    "chatPh": "Xabar yozing…",
-    "chatEmpty": "Hozircha xabar yo‘q. Birinchi bo‘lib yozing!",
-    "chatFast": "Xabarni 2 soniyada bir marta yuborish mumkin",
-    "chatMutedTitle": "🔇 Admin sizga chatga yozishni taqiqladi",
-    "chatMutedLeft": "Taqiq {t} dan keyin olinadi",
-    "chatMutedForever": "O‘qiy olasiz, lekin yoza olmaysiz",
-    "chatDel": "🗑 Xabarni o‘chirish",
-    "chatMuteH": "🔇 Chatga yozishni taqiqlash",
-    "d1h": "1 soat",
-    "d1d": "1 kun",
-    "d7d": "7 kun",
-    "dFor": "Abadiy",
-    "chatBanBtn": "⛔ Ilovadan abadiy bloklash",
-    "chatBanAsk": "Bu odamni ilovadan abadiy bloklaysizmi?",
-    "chatMutesBtn": "Chatda taqiqlanganlar",
-    "chatMutesEmpty": "Hozircha hech kim yo‘q",
-    "chatUnmute": "Ruxsat berish",
-    "chatForever": "abadiy",
-    "chatMuteSys": "🔇 {name}: xabar yozish taqiqlandi",
-    "chatToastDel": "Xabar o‘chirildi",
-    "chatToastMute": "Taqiq qo‘yildi",
-    "chatToastBan": "Bloklandi",
-    "chatUD": "k",
-    "chatUH": "s",
-    "chatUM": "daq",
     "vipInvNote": "5 ta do‘stingizni taklif qilib, 10 kunga VIP oling. Avval qo‘shilgan do‘stlar hisobga olinmaydi, hisob 0 dan boshlanadi. 10 kun tugagach, yana 5 ta do‘st taklif qilib, yana 10 kunga olishingiz mumkin.",
     "vipInvProg": "Taklif qilindi: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -1106,39 +1011,7 @@ const I18N = {
     "vipInvBtn": "Пригласить друзей",
     "vipBanTxt": "Хочешь VIP, как у других?",
     "vipBanYes": "Да",
-    "chatTitle": "Шашка чат",
-    "chatEnter": "ВОЙТИ В ЧАТ",
     "joinGroup": "ВСТУПИТЬ В ГРУППУ",
-    "chatMembersN": "👥 {n} участников",
-    "chatReply": "↩ Ответить",
-    "chatReplyGone": "Исходное сообщение удалено",
-    "chatYou": "Вы",
-    "chatRule": "Уважайте друг друга. За ругань и рекламу — блокировка навсегда.",
-    "chatPh": "Написать сообщение…",
-    "chatEmpty": "Пока нет сообщений. Напиши первым!",
-    "chatFast": "Сообщения можно отправлять раз в 2 секунды",
-    "chatMutedTitle": "🔇 Админ запретил вам писать в чат",
-    "chatMutedLeft": "Запрет снимется через {t}",
-    "chatMutedForever": "Вы можете читать, но не можете писать",
-    "chatDel": "🗑 Удалить сообщение",
-    "chatMuteH": "🔇 Запретить писать в чат",
-    "d1h": "1 час",
-    "d1d": "1 день",
-    "d7d": "7 дней",
-    "dFor": "Навсегда",
-    "chatBanBtn": "⛔ Заблокировать в приложении навсегда",
-    "chatBanAsk": "Заблокировать этого игрока в приложении навсегда?",
-    "chatMutesBtn": "Запрещено писать",
-    "chatMutesEmpty": "Пока никого нет",
-    "chatUnmute": "Разрешить",
-    "chatForever": "навсегда",
-    "chatMuteSys": "🔇 {name}: запрет на сообщения",
-    "chatToastDel": "Сообщение удалено",
-    "chatToastMute": "Запрет установлен",
-    "chatToastBan": "Заблокирован",
-    "chatUD": "д",
-    "chatUH": "ч",
-    "chatUM": "мин",
     "vipInvNote": "Пригласи 5 друзей и получи VIP на 10 дней. Ранее добавленные друзья не учитываются, отсчёт начинается с 0. Когда 10 дней закончатся, можно снова пригласить 5 друзей и получить ещё 10 дней.",
     "vipInvProg": "Приглашено: {a} / {n}",
     "vipRefGot": "👑 +{n} VIP 🎉",
@@ -1159,30 +1032,10 @@ const I18N = {
   }
 };
 
-Object.assign(I18N.kk, {"tourTile": "Турнир", "tourTileSub": "Жүлде койндары", "tourTitle": "Турнир", "tourNone": "Қазір ашық турнир жоқ", "tourNoneSub": "Жаңа турнир ашылғанда осы жерде көрінеді", "tourReg": "Тіркелу ашық", "tourLive": "Ойын жүріп жатыр", "tourJoin": "ТІРКЕЛУ", "tourJoined": "✓ ТІРКЕЛДІҢІЗ", "tourLeave": "Тіркелуден шығу", "tourFee": "Кіру", "tourFree": "Тегін", "tourStartAt": "Басталуы", "tourCount": "Тіркелді", "tourPrizes": "Жүлделер", "tourPlayers": "Қатысушылар", "tourReady": "ДАЙЫНМЫН", "tourReadyWait": "Қарсылас күтілуде…", "tourYourMatch": "Сіздің ойыныңыз", "tourLeftT": "Қалған уақыт", "tourOut": "Сіз турнирден шықтыңыз. Сетканы бақылай аласыз.", "tourWaitRound": "Келесі кезең күтілуде…", "tourPlaying": "Ойын жүріп жатыр", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Жартылай финал", "tourQuarter": "Ширек финал", "tourRoundN": "{n}-кезең", "tourErrCoins": "Койн жеткіліксіз", "tourErrFull": "Орын қалмады", "tourErrClosed": "Тіркелу жабық", "tourErrBusy": "Қарсылас дайын емес, күтіңіз", "tourBannerReg": "Тіркелу ашық · {c}/{s}", "tourBannerJoined": "Тіркелдіңіз · {c}/{s}", "tourBannerMy": "⚔️ Сіздің ойыныңыз дайын!", "tourBannerLive": "Турнир жүріп жатыр", "tourBannerOut": "Турнир жүріп жатыр · сіз шықтыңыз", "tourResult": "{p}-орын · +{c} 🪙", "tourLast": "Соңғы турнир", "tourWin1": "Чемпион", "tourWin2": "2-орын", "tourWin3": "3-орын", "tourByeLbl": "автоматты өту"});
-Object.assign(I18N.ru, {"tourTile": "Турнир", "tourTileSub": "Призовые монеты", "tourTitle": "Турнир", "tourNone": "Сейчас нет открытых турниров", "tourNoneSub": "Когда откроется новый турнир, он появится здесь", "tourReg": "Регистрация открыта", "tourLive": "Игры идут", "tourJoin": "УЧАСТВОВАТЬ", "tourJoined": "✓ ВЫ ЗАРЕГИСТРИРОВАНЫ", "tourLeave": "Отменить участие", "tourFee": "Взнос", "tourFree": "Бесплатно", "tourStartAt": "Начало", "tourCount": "Записано", "tourPrizes": "Призы", "tourPlayers": "Участники", "tourReady": "Я ГОТОВ", "tourReadyWait": "Ждём соперника…", "tourYourMatch": "Ваш матч", "tourLeftT": "Осталось времени", "tourOut": "Вы выбыли из турнира. Можно следить за сеткой.", "tourWaitRound": "Ждём следующий раунд…", "tourPlaying": "Идёт игра", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Полуфинал", "tourQuarter": "Четвертьфинал", "tourRoundN": "Раунд {n}", "tourErrCoins": "Недостаточно монет", "tourErrFull": "Мест нет", "tourErrClosed": "Регистрация закрыта", "tourErrBusy": "Соперник не готов, подождите", "tourBannerReg": "Регистрация открыта · {c}/{s}", "tourBannerJoined": "Вы записаны · {c}/{s}", "tourBannerMy": "⚔️ Ваш матч готов!", "tourBannerLive": "Турнир идёт", "tourBannerOut": "Турнир идёт · вы выбыли", "tourResult": "{p} место · +{c} 🪙", "tourLast": "Прошлый турнир", "tourWin1": "Чемпион", "tourWin2": "2 место", "tourWin3": "3 место", "tourByeLbl": "проход без игры"});
-Object.assign(I18N.uz, {"tourTile": "Turnir", "tourTileSub": "Sovrinli tangalar", "tourTitle": "Turnir", "tourNone": "Hozir ochiq turnir yo‘q", "tourNoneSub": "Yangi turnir ochilganda shu yerda ko‘rinadi", "tourReg": "Ro‘yxatdan o‘tish ochiq", "tourLive": "O‘yinlar ketmoqda", "tourJoin": "ISHTIROK ETISH", "tourJoined": "✓ RO‘YXATDASIZ", "tourLeave": "Ishtirokni bekor qilish", "tourFee": "Badal", "tourFree": "Bepul", "tourStartAt": "Boshlanishi", "tourCount": "Yozilgan", "tourPrizes": "Sovrinlar", "tourPlayers": "Ishtirokchilar", "tourReady": "TAYYORMAN", "tourReadyWait": "Raqib kutilmoqda…", "tourYourMatch": "Sizning o‘yiningiz", "tourLeftT": "Qolgan vaqt", "tourOut": "Siz turnirdan chiqdingiz. Setkani kuzatishingiz mumkin.", "tourWaitRound": "Keyingi bosqich kutilmoqda…", "tourPlaying": "O‘yin ketmoqda", "tourBracket": "Setka", "tourFinal": "Final", "tourSemi": "Yarim final", "tourQuarter": "Chorak final", "tourRoundN": "{n}-bosqich", "tourErrCoins": "Tanga yetarli emas", "tourErrFull": "Joy qolmadi", "tourErrClosed": "Ro‘yxat yopilgan", "tourErrBusy": "Raqib tayyor emas, kuting", "tourBannerReg": "Ro‘yxat ochiq · {c}/{s}", "tourBannerJoined": "Yozildingiz · {c}/{s}", "tourBannerMy": "⚔️ O‘yiningiz tayyor!", "tourBannerLive": "Turnir ketmoqda", "tourBannerOut": "Turnir ketmoqda · siz chiqdingiz", "tourResult": "{p}-o‘rin · +{c} 🪙", "tourLast": "Oxirgi turnir", "tourWin1": "Chempion", "tourWin2": "2-o‘rin", "tourWin3": "3-o‘rin", "tourByeLbl": "o‘yinsiz o‘tish"});
-Object.assign(I18N.kaa, {"tourTile": "Турнир", "tourTileSub": "Сыйлық койнлары", "tourTitle": "Турнир", "tourNone": "Ҳәзир ашық турнир жоқ", "tourNoneSub": "Жаңа турнир ашылғанда усы жерде көринеди", "tourReg": "Дизимнен өтиў ашық", "tourLive": "Ойынлар жүрип атыр", "tourJoin": "ҚАТНАСЫЎ", "tourJoined": "✓ ДИЗИМДЕСИЗ", "tourLeave": "Қатнасыўды бийкарлаў", "tourFee": "Кириў", "tourFree": "Тегин", "tourStartAt": "Басланыўы", "tourCount": "Жазылды", "tourPrizes": "Сыйлықлар", "tourPlayers": "Қатнасыўшылар", "tourReady": "ТАЯРМАН", "tourReadyWait": "Қарсылас күтилмекте…", "tourYourMatch": "Сизиң ойыныңыз", "tourLeftT": "Қалған ўақыт", "tourOut": "Сиз турнирден шықтыңыз. Сеткаға қарап турыўға болады.", "tourWaitRound": "Кейинги кезең күтилмекте…", "tourPlaying": "Ойын жүрип атыр", "tourBracket": "Сетка", "tourFinal": "Финал", "tourSemi": "Ярым финал", "tourQuarter": "Ширек финал", "tourRoundN": "{n}-кезең", "tourErrCoins": "Койн жетерли емес", "tourErrFull": "Орын қалмады", "tourErrClosed": "Дизимнен өтиў жабық", "tourErrBusy": "Қарсылас таяр емес, күтиң", "tourBannerReg": "Дизимнен өтиў ашық · {c}/{s}", "tourBannerJoined": "Жазылдыңыз · {c}/{s}", "tourBannerMy": "⚔️ Ойыныңыз таяр!", "tourBannerLive": "Турнир жүрип атыр", "tourBannerOut": "Турнир жүрип атыр · сиз шықтыңыз", "tourResult": "{p}-орын · +{c} 🪙", "tourLast": "Соңғы турнир", "tourWin1": "Чемпион", "tourWin2": "2-орын", "tourWin3": "3-орын", "tourByeLbl": "ойынсыз өтиў"});
 
-Object.assign(I18N.kk, {"tourJoinPay": "⭐ {f} ⭐ ТӨЛЕП ҚОСЫЛУ", "tourLeaveRefund": "Шығу (Stars қайтарылады)", "tourPool": "Банк және жүлде", "tourGiftNow": "🎁 {g} ⭐ подарок", "tourGiftLeft": "Қалған {l} ⭐ бот балансында қалады", "tourGiftNone": "Банк ең арзан подарокқа жетпесе, жеңімпазға 1 000 койн беріледі", "tourPrizeFree": "🥇 1-орын: 1 000 🪙", "tourPrizeFreeSub": "Тек жеңімпазға беріледі, басқа жүлде жоқ.", "tourGiftSent": "🎁 Жеңімпазға {g} ⭐ подарок жіберілді", "tourGiftCoins": "🪙 Жеңімпазға 1 000 койн берілді", "tourGiftPending": "🎁 Подарок жіберілуде…", "tourRulesTitle": "Ереже", "tourErrRefund": "Stars қайтарылмады, кейін қайталап көріңіз", "tourResultGift": "{p}-орын · 🎁 {g} ⭐", "tourRulesFree": "• Олимпиадалық жүйе: жеңген келесі кезеңге өтеді.\n• Әр ойынға «Дайынмын» басуға 3 минут беріледі.\n• Тең ойын қайта ойналады.\n• Тегін турнир: жүлде тек 1-орынға.", "tourRulesStars": "• Олимпиадалық жүйе: жеңген келесі кезеңге өтеді.\n• Әр ойынға «Дайынмын» басуға 3 минут беріледі.\n• Тең ойын қайта ойналады.\n• Кіру ақысы Telegram Stars-пен төленеді, барлығы банкке жиналады.\n• Жеңімпазға банкке сыятын ең қымбат подарокты бот өзі жібереді, қалғаны ботта қалады.\n• Турнир басталмай шықсаңыз немесе бас тартылса, Stars қайтарылады.\n• Подарок келуі үшін ботпен /start басқан болуыңыз керек."});
-Object.assign(I18N.ru, {"tourJoinPay": "⭐ ОПЛАТИТЬ {f} ⭐ И УЧАСТВОВАТЬ", "tourLeaveRefund": "Выйти (Stars вернутся)", "tourPool": "Банк и приз", "tourGiftNow": "🎁 Подарок {g} ⭐", "tourGiftLeft": "Остаток {l} ⭐ останется у бота", "tourGiftNone": "Если банка не хватает на подарок, победитель получит 1 000 монет", "tourPrizeFree": "🥇 1 место: 1 000 🪙", "tourPrizeFreeSub": "Только победителю, других призов нет.", "tourGiftSent": "🎁 Победителю отправлен подарок {g} ⭐", "tourGiftCoins": "🪙 Победителю начислено 1 000 монет", "tourGiftPending": "🎁 Подарок отправляется…", "tourRulesTitle": "Правила", "tourErrRefund": "Не удалось вернуть Stars, попробуйте позже", "tourResultGift": "{p} место · 🎁 {g} ⭐", "tourRulesFree": "• Олимпийская система: победитель проходит дальше.\n• На кнопку «Я готов» даётся 3 минуты.\n• Ничья переигрывается.\n• Бесплатный турнир: приз только за 1 место.", "tourRulesStars": "• Олимпийская система: победитель проходит дальше.\n• На кнопку «Я готов» даётся 3 минуты.\n• Ничья переигрывается.\n• Взнос оплачивается Telegram Stars, всё собирается в банк.\n• Победителю бот сам отправляет самый дорогой подарок, который помещается в банк, остаток остаётся у бота.\n• Если выйдете до старта или турнир отменят, Stars вернутся.\n• Чтобы подарок дошёл, нужно хотя бы раз нажать /start у бота."});
-Object.assign(I18N.uz, {"tourJoinPay": "⭐ {f} ⭐ TO‘LAB QO‘SHILISH", "tourLeaveRefund": "Chiqish (Stars qaytariladi)", "tourPool": "Bank va sovrin", "tourGiftNow": "🎁 {g} ⭐ sovg‘a", "tourGiftLeft": "Qolgan {l} ⭐ botda qoladi", "tourGiftNone": "Bank sovg‘aga yetmasa, g‘olib 1 000 tanga oladi", "tourPrizeFree": "🥇 1-o‘rin: 1 000 🪙", "tourPrizeFreeSub": "Faqat g‘olibga beriladi, boshqa sovrin yo‘q.", "tourGiftSent": "🎁 G‘olibga {g} ⭐ sovg‘a yuborildi", "tourGiftCoins": "🪙 G‘olibga 1 000 tanga berildi", "tourGiftPending": "🎁 Sovg‘a yuborilmoqda…", "tourRulesTitle": "Qoidalar", "tourErrRefund": "Stars qaytarilmadi, keyinroq urinib ko‘ring", "tourResultGift": "{p}-o‘rin · 🎁 {g} ⭐", "tourRulesFree": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Bepul turnir: sovrin faqat 1-o‘ringa.", "tourRulesStars": "• Olimpiya tizimi: g‘olib keyingi bosqichga o‘tadi.\n• «Tayyorman» bosish uchun 3 daqiqa beriladi.\n• Durang qayta o‘ynaladi.\n• Kirish to‘lovi Telegram Stars bilan to‘lanadi, hammasi bankka yig‘iladi.\n• G‘olibga bank yetadigan eng qimmat sovg‘ani bot o‘zi yuboradi, qolgani botda qoladi.\n• Turnir boshlanmasdan chiqsangiz yoki bekor qilinsa, Stars qaytariladi.\n• Sovg‘a yetib borishi uchun bot bilan kamida bir marta /start bosgan bo‘lishingiz kerak."});
-Object.assign(I18N.kaa, {"tourJoinPay": "⭐ {f} ⭐ ТӨЛЕП ҚОСЫЛЫЎ", "tourLeaveRefund": "Шығыў (Stars қайтарылады)", "tourPool": "Банк ҳәм сыйлық", "tourGiftNow": "🎁 {g} ⭐ подарок", "tourGiftLeft": "Қалған {l} ⭐ бот балансында қалады", "tourGiftNone": "Банк подарокқа жетпесе, жеңимпазға 1 000 койн бериледи", "tourPrizeFree": "🥇 1-орын: 1 000 🪙", "tourPrizeFreeSub": "Тек жеңимпазға бериледи, басқа сыйлық жоқ.", "tourGiftSent": "🎁 Жеңимпазға {g} ⭐ подарок жиберилди", "tourGiftCoins": "🪙 Жеңимпазға 1 000 койн берилди", "tourGiftPending": "🎁 Подарок жиберилмекте…", "tourRulesTitle": "Ереже", "tourErrRefund": "Stars қайтарылмады, кейинирек қайталап көриң", "tourResultGift": "{p}-орын · 🎁 {g} ⭐", "tourRulesFree": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Тегин турнир: сыйлық тек 1-орынға.", "tourRulesStars": "• Олимпиадалық система: жеңген келеси кезеңге өтеди.\n• «Таярман» басыўға 3 минут бериледи.\n• Тең ойын қайта ойналады.\n• Кириў ақысы Telegram Stars пенен төленеди, барлығы банкке жыйналады.\n• Жеңимпазға банкке сыйатуғын ең қымбат подарокты бот өзи жибереди, қалғаны ботта қалады.\n• Турнир басланбай шықсаңыз яки бийкар етилсе, Stars қайтарылады.\n• Подарок келиўи ушын ботты бир рет ашып, /start басқан болыўыңыз керек."});
 
-Object.assign(I18N.kk, {"tourNoticeFree": "Жаңа турнир ашылды · тегін · {c}/{s}", "tourNoticeStars": "Жаңа турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Қарау"});
-Object.assign(I18N.ru, {"tourNoticeFree": "Открыт новый турнир · бесплатно · {c}/{s}", "tourNoticeStars": "Новый турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Смотреть"});
-Object.assign(I18N.uz, {"tourNoticeFree": "Yangi turnir ochildi · bepul · {c}/{s}", "tourNoticeStars": "Yangi turnir · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Ko‘rish"});
-Object.assign(I18N.kaa, {"tourNoticeFree": "Жаңа турнир ашылды · тегин · {c}/{s}", "tourNoticeStars": "Жаңа турнир · ⭐ {f} ⭐ · {c}/{s}", "tourNoticeGo": "Көриў"});
 
-Object.assign(I18N.kk, {"tourTabMain": "Негізгі", "tourTabBracket": "Сетка", "tourTabRules": "Ереже", "tourStartIn": "Басталуына: {t}", "tourStartSoon": "Бастау уақыты келді…", "tourBracketSoon": "Сетка турнир басталғанда құрылады.", "tourAutoNote": "Турнир көрсетілген уақытта автоматты басталады. Басталардан 5 минут бұрын жеке чатқа ескерту барады.", "tourNoticeJoined": "Сіз тіркелгенсіз · {c}/{s}", "tourDead": "екеуі де шықты"});
-Object.assign(I18N.ru, {"tourTabMain": "Главная", "tourTabBracket": "Сетка", "tourTabRules": "Правила", "tourStartIn": "До старта: {t}", "tourStartSoon": "Время старта пришло…", "tourBracketSoon": "Сетка появится, когда турнир начнётся.", "tourAutoNote": "Турнир стартует автоматически в указанное время. За 5 минут до старта придёт напоминание в личный чат.", "tourNoticeJoined": "Вы зарегистрированы · {c}/{s}", "tourDead": "оба выбыли"});
-Object.assign(I18N.uz, {"tourTabMain": "Asosiy", "tourTabBracket": "Setka", "tourTabRules": "Qoidalar", "tourStartIn": "Boshlanishiga: {t}", "tourStartSoon": "Boshlanish vaqti keldi…", "tourBracketSoon": "Setka turnir boshlanganda tuziladi.", "tourAutoNote": "Turnir ko‘rsatilgan vaqtda avtomatik boshlanadi. Boshlanishiga 5 daqiqa qolganda shaxsiy chatga eslatma keladi.", "tourNoticeJoined": "Siz ro‘yxatdasiz · {c}/{s}", "tourDead": "ikkalasi ham chiqdi"});
-Object.assign(I18N.kaa, {"tourTabMain": "Тийкарғы", "tourTabBracket": "Сетка", "tourTabRules": "Ереже", "tourStartIn": "Басланыўына: {t}", "tourStartSoon": "Баслаў ўақыты келди…", "tourBracketSoon": "Сетка турнир басланғанда дүзиледи.", "tourAutoNote": "Турнир көрсетилген ўақытта автомат басланады. Басланыўына 5 минут қалғанда жеке чатқа ескертиў барады.", "tourNoticeJoined": "Сиз дизимдесиз · {c}/{s}", "tourDead": "екеўи де шықты"});
 
-Object.assign(I18N.kk, {"tourMatchTitle": "⚔️ Турнир ойыныңыз дайын!", "tourMatchSub": "Қарсылас: {o} · {t}", "tourMatchOpen": "Ашу"});
-Object.assign(I18N.ru, {"tourMatchTitle": "⚔️ Ваш турнирный матч готов!", "tourMatchSub": "Соперник: {o} · {t}", "tourMatchOpen": "Открыть"});
-Object.assign(I18N.uz, {"tourMatchTitle": "⚔️ Turnir o‘yiningiz tayyor!", "tourMatchSub": "Raqib: {o} · {t}", "tourMatchOpen": "Ochish"});
-Object.assign(I18N.kaa, {"tourMatchTitle": "⚔️ Турнир ойыныңыз таяр!", "tourMatchSub": "Қарсылас: {o} · {t}", "tourMatchOpen": "Ашыў"});
 
 Object.assign(I18N.kk, {"botPlay": "БОТПЕН ОЙНАУ", "botNote": "🧠 Бот өте ақылды: оны жеңу қиын. Жеңсеңіз +250 🪙", "botSub": "🧠 Өте ақылды", "botPrize": "🧠 Бот өте ақылды · Жеңсеңіз +250 🪙", "botReward": "+{c} 🪙 ботты жеңгеніңіз үшін", "botCapped": "Бүгінгі койн лимиті бітті (күніне 5 жеңіс). Ойнай беруге болады"});
 Object.assign(I18N.ru, {"botPlay": "ИГРАТЬ С БОТОМ", "botNote": "🧠 Бот очень умный: победить его сложно. Победа над ботом: +250 🪙", "botSub": "🧠 Очень умный", "botPrize": "🧠 Бот очень умный · Победа: +250 🪙", "botReward": "+{c} 🪙 за победу над ботом", "botCapped": "Лимит наград на сегодня исчерпан (5 побед в день). Играть можно дальше"});
@@ -1776,10 +1629,7 @@ function show(id) {
   });
 
   if (id !== 'players') stopPlayersPoll();
-  if (id !== 'tour' && typeof stopTourPoll === 'function') stopTourPoll();
   if (id !== 'game') closeRtc();
-
-  chatLayout(id === 'chat');
 
   if (tg) {
     try {
@@ -1787,7 +1637,7 @@ function show(id) {
         tg.BackButton.show();
         tg.enableClosingConfirmation();
       } else {
-        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins' || id === 'tour' || id === 'chat'
+        id === 'shop' || id === 'refs' || id === 'rating' || id === 'rank' || id === 'players' || id === 'coins'
           ? tg.BackButton.show()
           : tg.BackButton.hide();
         tg.disableClosingConfirmation();
@@ -1809,9 +1659,7 @@ if (tg) {
         $('refs').classList.contains('active') ||
         $('rating').classList.contains('active') ||
         ($('rank') && $('rank').classList.contains('active')) ||
-        $('players').classList.contains('active') ||
-        $('chat').classList.contains('active') ||
-        $('tour').classList.contains('active')
+        $('players').classList.contains('active')
       ) {
         show('menu');
         return;
@@ -1945,15 +1793,6 @@ function onMsg(m) {
 
       $('sheetInvite').classList.add('hidden');
       haptic('heavy');
-      break;
-
-    case 'tour_lite':
-    case 'tour':
-      onTour(m);
-      break;
-
-    case 'tour_err':
-      tourToast(tr({ coins: 'tourErrCoins', full: 'tourErrFull', closed: 'tourErrClosed', opp_busy: 'tourErrBusy', refund: 'tourErrRefund' }[m.code] || 'tourErrClosed'));
       break;
 
     case 'rtc_cfg':
@@ -4342,572 +4181,6 @@ $('btnPinNo').onclick = () => {
 };
 
 
-/* ---------- ТУРНИР ---------- */
-
-S.tour = { lite: null, full: null, poll: null, tick: null, until: 0, hot: false };
-
-function tEl(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-
-function tourToast(text) {
-  let t = $('tourToast');
-
-  if (!t) {
-    t = tEl('div', 'ttoast');
-    t.id = 'tourToast';
-    document.body.appendChild(t);
-  }
-
-  t.textContent = text;
-  t.classList.add('on');
-  clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('on'), 2200);
-}
-
-function tourSeen(id) {
-  try { return localStorage.getItem('shashka_tour_seen') === String(id); } catch (e) { return false; }
-}
-
-function tourMarkSeen(id) {
-  try { localStorage.setItem('shashka_tour_seen', String(id)); } catch (e) {}
-}
-
-function onTour(m) {
-  const wasHot = S.tour.hot;
-
-  S.tour.lite = m;
-  if (m.t === 'tour') S.tour.full = m;
-
-  tourNoticeMaybe(m);
-
-  S.tour.hot = Boolean(m.on && m.status === 'live' && m.alive && m.myMatch && !m.myReady && !m.myPlaying);
-
-  if (S.tour.hot && !wasHot) haptic('heavy');
-
-  tourMatchPopup();
-
-  tourBanner();
-
-  if ($('tour').classList.contains('active')) {
-    if (m.t === 'tour') renderTour();
-    else send({ t: 'tour_get' });
-  }
-}
-
-function tourBanner() {
-  const l = S.tour.lite;
-  const sub = $('tourTileSub');
-  const tile = $('btnTour');
-  let text = tr('tourTileSub');
-
-  if (l && l.on) {
-    if (l.status === 'reg') {
-      text = (l.kind === 'stars' ? '⭐ ' : '') + tr(l.joined ? 'tourBannerJoined' : 'tourBannerReg', { c: l.count, s: l.size });
-    } else if (S.tour.hot) {
-      text = tr('tourBannerMy');
-    } else if (l.alive) {
-      text = tr('tourBannerLive');
-    } else {
-      text = tr('tourBannerOut');
-    }
-  } else if (l && l.last && l.last.place && !tourSeen(l.last.id)) {
-    text = l.last.gift
-      ? tr('tourResultGift', { p: l.last.place, g: l.last.gift })
-      : l.last.coins
-        ? tr('tourResult', { p: l.last.place, c: l.last.coins })
-        : '#' + l.last.place;
-  }
-
-  if (sub) sub.textContent = text;
-  if (tile) tile.classList.toggle('hot', S.tour.hot);
-}
-
-function tourRoundLabel(i, n) {
-  if (n === 1) return tr('tourFinal');
-  if (n === 2) return tr('tourSemi');
-  if (n === 4) return tr('tourQuarter');
-  return tr('tourRoundN', { n: i + 1 });
-}
-
-function fmtLeft(ms) {
-  const s = Math.max(0, Math.round(ms / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const p = (n) => String(n).padStart(2, '0');
-
-  return h ? h + ':' + p(m) + ':' + p(s % 60) : m + ':' + p(s % 60);
-}
-
-function tourNone(body, f) {
-  const c = tEl('div', 'tcard');
-  c.appendChild(tEl('h2', '', '🏆 ' + tr('tourNone')));
-  c.appendChild(tEl('p', 'tnote', tr('tourNoneSub')));
-  body.appendChild(c);
-
-  if (f.lastInfo) {
-    const l = f.lastInfo;
-    const d = tEl('div', 'tcard');
-    d.appendChild(tEl('span', 'tbadge live', tr('tourLast')));
-    d.appendChild(tEl('h2', '', l.name));
-    d.appendChild(tEl('p', 'tnote', '🥇 ' + l.first + '  ·  🥈 ' + l.second));
-    if (l.third && l.third.length) d.appendChild(tEl('p', 'tnote', '🥉 ' + l.third.join(', ')));
-
-    if (l.kind === 'stars' && l.gift) {
-      d.appendChild(tEl('p', 'tnote', tr(
-        l.gift.status === 'sent' ? 'tourGiftSent' : l.gift.status === 'coins' ? 'tourGiftCoins' : 'tourGiftPending',
-        { g: l.gift.stars }
-      )));
-    } else if (l.kind !== 'stars') {
-      d.appendChild(tEl('p', 'tnote', tr('tourPrizeFree')));
-    }
-
-    body.appendChild(d);
-  }
-}
-
-function tourMain(body, f) {
-  const live = f.status === 'live';
-  const stars = f.kind === 'stars';
-  const c = tEl('div', 'tcard');
-
-  c.appendChild(tEl('span', 'tbadge' + (live ? ' live' : ''), '● ' + tr(live ? 'tourLive' : 'tourReg')));
-  c.appendChild(tEl('h2', '', f.name));
-
-  if (!live) {
-    const row = tEl('div', 'trow');
-    [
-      [f.count + ' / ' + f.size, tr('tourCount')],
-      [f.startText || '—', tr('tourStartAt')],
-      [stars ? f.fee + ' ⭐' : tr('tourFree'), tr('tourFee')]
-    ].forEach(([v, k]) => {
-      const s = tEl('div', 'tst');
-      s.appendChild(tEl('b', '', v));
-      s.appendChild(tEl('small', '', k));
-      row.appendChild(s);
-    });
-    c.appendChild(row);
-
-    const bar = tEl('div', 'tbar');
-    const fill = tEl('i');
-    fill.style.width = Math.min(100, (f.count / f.size) * 100) + '%';
-    bar.appendChild(fill);
-    c.appendChild(bar);
-
-    if (f.startAt) {
-      const sl = tEl('p', 'tnote');
-      sl.id = 'tourStartIn';
-      c.appendChild(sl);
-      S.tour.startAt = f.startAt;
-    }
-
-    if (f.joined) {
-      const ok = tEl('button', 'tbtn ok', tr('tourJoined'));
-      ok.type = 'button';
-      ok.disabled = true;
-      c.appendChild(ok);
-
-      const lv = tEl('button', 'tbtn sec', tr(stars ? 'tourLeaveRefund' : 'tourLeave'));
-      lv.type = 'button';
-      lv.onclick = () => send({ t: 'tour_leave' });
-      c.appendChild(lv);
-    } else {
-      const j = tEl('button', 'tbtn', tr(stars ? 'tourJoinPay' : 'tourJoin', { f: f.fee }));
-      j.type = 'button';
-      j.disabled = f.count >= f.size;
-      j.onclick = () => { haptic('medium'); send({ t: 'tour_join' }); };
-      c.appendChild(j);
-    }
-
-    if (f.startAt) c.appendChild(tEl('p', 'tnote tsmall', tr('tourAutoNote')));
-  } else if (f.my) {
-    c.appendChild(tEl('div', 'tsec', tr('tourYourMatch')));
-
-    const vs = tEl('div', 'tvs');
-    vs.appendChild(tEl('span', '', S.me ? S.me.name : ''));
-    vs.appendChild(tEl('small', '', 'VS'));
-    vs.appendChild(tEl('span', '', f.my.opp.name));
-    c.appendChild(vs);
-
-    if (f.my.playing) {
-      c.appendChild(tEl('p', 'tnote', tr('tourPlaying')));
-    } else if (!f.my.ready) {
-      const r = tEl('button', 'tbtn green', tr('tourReady'));
-      r.type = 'button';
-      r.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); };
-      c.appendChild(r);
-    } else {
-      c.appendChild(tEl('p', 'tnote', tr('tourReadyWait')));
-    }
-
-    S.tour.until = Date.now() + (f.my.left || 0);
-    const left = tEl('p', 'tnote');
-    left.id = 'tourLeft';
-    c.appendChild(left);
-  } else if (f.alive) {
-    c.appendChild(tEl('p', 'tnote', tr('tourWaitRound')));
-  } else {
-    c.appendChild(tEl('p', 'tnote', tr('tourOut')));
-  }
-
-  body.appendChild(c);
-
-  if (stars) {
-    body.appendChild(tEl('div', 'tsec', tr('tourPool')));
-    const bx = tEl('div', 'tbox');
-    bx.appendChild(tEl('div', 'tpool', (f.pool || 0) + ' ⭐'));
-
-    const tiers = tEl('div', 'ttiers');
-    (f.tiers || []).forEach((x) => tiers.appendChild(tEl('div', 'ttr' + (x === f.gift ? ' on' : ''), x + ' ⭐')));
-    bx.appendChild(tiers);
-
-    const w = tEl('div', 'twin');
-    if (f.gift) {
-      w.appendChild(tEl('b', '', tr('tourGiftNow', { g: f.gift })));
-      w.appendChild(tEl('small', '', tr('tourGiftLeft', { l: f.pool - f.gift })));
-    } else {
-      w.appendChild(tEl('small', '', tr('tourGiftNone')));
-    }
-    bx.appendChild(w);
-    body.appendChild(bx);
-  } else {
-    body.appendChild(tEl('div', 'tsec', tr('tourPrizes')));
-    const w = tEl('div', 'twin');
-    w.appendChild(tEl('b', '', tr('tourPrizeFree')));
-    w.appendChild(tEl('small', '', tr('tourPrizeFreeSub')));
-    body.appendChild(w);
-  }
-
-  if (!live && f.players && f.players.length) {
-    body.appendChild(tEl('div', 'tsec', tr('tourPlayers') + ' · ' + f.count));
-    const ch = tEl('div', 'tchips');
-    f.players.forEach((n) => ch.appendChild(tEl('span', 'tchip', n)));
-    body.appendChild(ch);
-  }
-}
-
-function tourBracketView(body, f, me) {
-  const R = f.rounds || [];
-
-  if (!R.length) {
-    const b = tEl('div', 'tbox');
-    b.appendChild(tEl('p', 'tnote', tr('tourBracketSoon')));
-    b.appendChild(tEl('p', 'tnote', tr('tourCount') + ': ' + f.count));
-    body.appendChild(b);
-    return;
-  }
-
-  const n1 = R[0].length;
-  let total = 1;
-  while ((1 << (total - 1)) < n1) total++;
-
-  const row = (p, m, side) => {
-    let cls = 'tb-p';
-
-    if (!p) cls += ' q';
-    else {
-      if (m && m.w) cls += m.w === p.id ? ' w' : ' l';
-      if (p.id === me) cls += ' me';
-    }
-
-    return tEl('div', cls, p ? p.name : (m && m.w === '-' ? '—' : (m && m.w ? tr('tourByeLbl') : '?')));
-  };
-
-  const slot = (m, left, last) => {
-    const s = tEl('div', 'tb-slot');
-    const b = tEl('div', 'tb-m' + (m && m.play ? ' pl' : '') + (left ? ' left' : '') + (last ? ' last' : ''));
-    b.appendChild(row(m && m.a, m));
-    b.appendChild(row(m && m.b, m));
-    s.appendChild(b);
-    return s;
-  };
-
-  const wrap = tEl('div', 'tb-wrap');
-  const cols = tEl('div', 'tb-cols');
-
-  for (let r = 0; r < total; r++) {
-    const cnt = Math.max(1, n1 >> r);
-    const ms = R[r] || [];
-    const col = tEl('div', 'tb-col');
-    col.appendChild(tEl('h4', '', tourRoundLabel(r, cnt)));
-
-    const list = tEl('div', 'tb-list');
-
-    if (r < total - 1) {
-      for (let i = 0; i < cnt; i += 2) {
-        const pair = tEl('div', 'tb-pair');
-        pair.appendChild(slot(ms[i] || null, r > 0, false));
-        pair.appendChild(slot(ms[i + 1] || null, r > 0, false));
-        list.appendChild(pair);
-      }
-    } else {
-      list.appendChild(slot(ms[0] || null, r > 0, true));
-    }
-
-    col.appendChild(list);
-    cols.appendChild(col);
-  }
-
-  wrap.appendChild(cols);
-  body.appendChild(wrap);
-}
-
-function tourRulesView(body, f) {
-  body.appendChild(tEl('div', 'tbox trules', tr(f.kind === 'stars' ? 'tourRulesStars' : 'tourRulesFree')));
-}
-
-function renderTour() {
-  const body = $('tourBody');
-  const f = S.tour.full;
-
-  if (!body || !f) return;
-
-  body.textContent = '';
-
-  if (!f.on) {
-    tourNone(body, f);
-    return;
-  }
-
-  const tab = S.tour.tab || 0;
-  const bar = tEl('div', 'ttabs');
-
-  ['tourTabMain', 'tourTabBracket', 'tourTabRules'].forEach((k, i) => {
-    const b = tEl('button', tab === i ? 'on' : '', tr(k));
-    b.type = 'button';
-    b.onclick = () => { S.tour.tab = i; renderTour(); };
-    bar.appendChild(b);
-  });
-
-  body.appendChild(bar);
-
-  const me = S.me ? String(S.me.id) : null;
-
-  if (tab === 0) { tourMain(body, f); tourTick(); }
-  else if (tab === 1) tourBracketView(body, f, me);
-  else tourRulesView(body, f);
-}
-
-function tourTick() {
-  const el = $('tourLeft');
-
-  if (el) {
-    const s = Math.max(0, Math.round((S.tour.until - Date.now()) / 1000));
-    el.textContent = tr('tourLeftT') + ': ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-  }
-
-  const st = $('tourStartIn');
-
-  if (st && S.tour.startAt) {
-    const ms = S.tour.startAt - Date.now();
-    st.textContent = ms > 0 ? tr('tourStartIn', { t: fmtLeft(ms) }) : tr('tourStartSoon');
-  }
-}
-
-function stopTourPoll() {
-  clearInterval(S.tour.poll);
-  clearInterval(S.tour.tick);
-  S.tour.poll = S.tour.tick = null;
-}
-
-function openTour() {
-  const l = S.tour.lite;
-
-  if (l && !l.on && l.last) tourMarkSeen(l.last.id);
-
-  S.tour.tab = 0;
-  send({ t: 'tour_get' });
-
-  if (S.tour.full) renderTour();
-
-  show('tour');
-  tourBanner();
-
-  stopTourPoll();
-  S.tour.poll = setInterval(() => {
-    if (!document.hidden) send({ t: 'tour_get' });
-  }, 7000);
-  S.tour.tick = setInterval(tourTick, 1000);
-}
-
-
-/* ---------- Мини-app ашылғанда турнир хабарландыруы ---------- */
-
-S.tour.noticeDone = false;
-S.tour.noticeTimer = null;
-
-function tourNoticeMaybe(m) {
-  if (typeof TOURNAMENT_UI !== 'undefined' && !TOURNAMENT_UI) return;
-  // Мини-app әр ашылғанда бір рет тексереміз
-  if (S.tour.noticeDone) return;
-  S.tour.noticeDone = true;
-
-  // Тек тіркелу ашық және ойыншы әлі тіркелмеген болса көрсетеміз
-  if (!m.on || m.status !== 'reg' || m.joined) return;
-
-  tryTourNotice(0);
-}
-
-function tryTourNotice(n) {
-  const m = S.tour.lite;
-  const menu = $('menu');
-
-  // Осы аралықта тіркеліп қойса немесе турнир жабылса, көрсетпейміз
-  if (!m || !m.on || m.status !== 'reg' || m.joined) return;
-
-  // Меню әлі көрінбесе, сәл кейін қайта тексереміз
-  if (!menu || !menu.classList.contains('active')) {
-    if (n < 10) setTimeout(() => tryTourNotice(n + 1), 700);
-    return;
-  }
-
-  setTimeout(() => {
-    const l = S.tour.lite;
-    if (l && l.on && l.status === 'reg' && !l.joined) showTourNotice(l);
-  }, 500);
-}
-
-// Қолданба фонға кетіп қайта ашылса, жаңа ашылу ретінде есептеледі
-let tourHiddenAt = 0;
-
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    tourHiddenAt = Date.now();
-    return;
-  }
-
-  if (tourHiddenAt && Date.now() - tourHiddenAt > 5000) {
-    S.tour.noticeDone = false;
-    send({ t: 'tour_get' });
-  }
-});
-
-function hideTourNotice() {
-  const n = $('tourNotice');
-
-  if (!n) return;
-
-  clearTimeout(S.tour.noticeTimer);
-  n.classList.remove('on');
-  setTimeout(() => n.classList.add('hid'), 350);
-}
-
-function showTourNotice(m) {
-  const n = $('tourNotice');
-
-  if (!n) return;
-
-  n.textContent = '';
-
-  const txt = tEl('div', 'tn-t');
-  txt.appendChild(tEl('b', '', '🏆 ' + m.name));
-  txt.appendChild(tEl('small', '', tr(m.joined ? 'tourNoticeJoined' : m.kind === 'stars' ? 'tourNoticeStars' : 'tourNoticeFree', { f: m.fee, c: m.count, s: m.size })));
-
-  const go = tEl('button', 'tn-go', tr('tourNoticeGo'));
-  go.type = 'button';
-  go.onclick = () => { hideTourNotice(); openTour(); };
-
-  const x = tEl('button', 'tn-x', '✕');
-  x.type = 'button';
-  x.onclick = hideTourNotice;
-
-  n.appendChild(txt);
-  n.appendChild(go);
-  n.appendChild(x);
-
-  n.classList.remove('hid');
-  requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add('on')));
-  haptic('light');
-
-  clearTimeout(S.tour.noticeTimer);
-  S.tour.noticeTimer = setTimeout(hideTourNotice, 9000);
-}
-
-
-/* ---------- «Ойыныңыз дайын» терезесі (кез келген бетте, ойында болсаң да) ---------- */
-
-S.tour.matchOn = false;
-S.tour.matchUntil = 0;
-S.tour.matchTimer = null;
-
-function hideTourMatch() {
-  const n = $('tourMatch');
-
-  clearInterval(S.tour.matchTimer);
-  S.tour.matchTimer = null;
-  S.tour.matchOn = false;
-
-  if (!n) return;
-
-  n.classList.remove('on');
-  setTimeout(() => { if (!S.tour.matchOn) n.classList.add('hid'); }, 350);
-}
-
-function tourMatchTick() {
-  const el = $('tmSub');
-
-  if (!el || !S.tour.lite) return;
-
-  const ms = S.tour.matchUntil - Date.now();
-  el.textContent = tr('tourMatchSub', { o: S.tour.lite.myOpp || '', t: fmtLeft(ms) });
-}
-
-function tourMatchPopup() {
-  if (typeof TOURNAMENT_UI !== 'undefined' && !TOURNAMENT_UI) return;
-
-  const n = $('tourMatch');
-  const l = S.tour.lite;
-
-  if (!n) return;
-
-  // Тәртіпке сай болмаса немесе турнир экранында тұрса, көрсетпейміз
-  if (!S.tour.hot || !l || $('tour').classList.contains('active')) {
-    if (S.tour.matchOn) hideTourMatch();
-    return;
-  }
-
-  S.tour.matchUntil = Date.now() + (l.myLeft || 0);
-
-  if (S.tour.matchOn) {
-    tourMatchTick();
-    return;
-  }
-
-  S.tour.matchOn = true;
-  n.textContent = '';
-
-  const txt = tEl('div', 'tm-t');
-  txt.appendChild(tEl('b', '', tr('tourMatchTitle')));
-  const sub = tEl('small', '');
-  sub.id = 'tmSub';
-  txt.appendChild(sub);
-
-  const ready = tEl('button', 'tm-go', tr('tourReady'));
-  ready.type = 'button';
-  ready.onclick = () => { haptic('heavy'); send({ t: 'tour_ready' }); hideTourMatch(); };
-
-  const open = tEl('button', 'tm-open', tr('tourMatchOpen'));
-  open.type = 'button';
-  open.onclick = () => { hideTourMatch(); openTour(); };
-
-  n.appendChild(txt);
-  n.appendChild(open);
-  n.appendChild(ready);
-
-  n.classList.remove('hid');
-  requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add('on')));
-  tourMatchTick();
-
-  clearInterval(S.tour.matchTimer);
-  S.tour.matchTimer = setInterval(tourMatchTick, 1000);
-}
-
-const TOURNAMENT_UI = false;   // турнир бөлімі өшірулі (true қылса қайта қосылады)
-if (TOURNAMENT_UI && $('btnTour')) $('btnTour').onclick = openTour;
-
 /* ---------- ДАУЫСТЫҚ БАЙЛАНЫС (WebRTC) ---------- */
 
 const RTC_CFG = {
@@ -5308,7 +4581,7 @@ function openInvoice(url) {
     if (tg && tg.openInvoice) {
       tg.openInvoice(url, (status) => {
         if (status === 'failed') ptoast(tr('payFail'));
-        if (status === 'paid') { send({ t: 'shop_get' }); send({ t: 'tour_get' }); }
+        if (status === 'paid') { send({ t: 'shop_get' }); }
       });
       return;
     }
