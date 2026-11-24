@@ -1,12 +1,14 @@
 // "ws" кітапханасының қолданылатын бөлігін Cloudflare WebSocketPair үстінен қайталайды.
 const state = (globalThis.__CF = globalThis.__CF || {});
-const MAX_PAYLOAD = 4096;
+const MAX_PAYLOAD = 16384;   // rtc сигналы (SDP) 8000 символға дейін өтеді, сондықтан 4096 тым аз
+const IDLE_MS = 150000;      // осыдан ұзақ уақыт ешқандай хабарлама келмесе, қосылым «өлі» деп саналады
 
 class Socket {
   constructor(sock) {
     this.sock = sock;
     this.readyState = 1;
     this.isAlive = true;
+    this.lastMsg = Date.now();
     this.h = {};
   }
   on(ev, fn) { (this.h[ev] = this.h[ev] || []).push(fn); return this; }
@@ -19,7 +21,7 @@ class Socket {
   close() { if (this.readyState === 3) return; this.readyState = 2; try { this.sock.close(1000, 'bye'); } catch {} }
   terminate() { this.close(); }
   // Байланыстың тірі екенін Cloudflare өзі қадағалайды, сондықтан pong-ты бірден қайтарамыз
-  ping() { this.emit('pong'); }
+  ping() { if (Date.now() - this.lastMsg < IDLE_MS) this.emit('pong'); }
 }
 
 class WebSocketServer {
@@ -44,6 +46,7 @@ class WebSocketServer {
       const size = typeof d === 'string' ? d.length : (d.byteLength || 0);
       if (size > MAX_PAYLOAD) { ws.close(); return; }
       ws.isAlive = true;
+      ws.lastMsg = Date.now();
       try { (state.lastIn = (state.lastIn || []).slice(-3)).push(String(d).slice(0, 120)); state.persist && state.persist('lastIn', state.lastIn); } catch {}
       ws.emit('message', d);
     });
