@@ -27,7 +27,11 @@ export class Hub extends DurableObject {
     // Күту уақыты әр сұраныста бөлек шектеледі.
     this.bootAt = Date.now();
     this.isReady = false;
-    this.ready = new Promise((resolve) => { state.listening = resolve; });
+    // server.js модулі бір isolate ішінде қайта орындалмайды: DO объектісі қайта жасалса,
+    // listen() қайта шақырылмайды. Сондықтан сервер бұрын іске қосылған болса, бірден «дайын» деп аламыз.
+    this.ready = state.isListening
+      ? Promise.resolve()
+      : new Promise((resolve) => { state.listening = resolve; });
     this.ready.then(() => { this.isReady = true; this.readyMs = Date.now() - this.bootAt; });
     // server.js ЖОҒАРЫДАҒЫ env орнатылғаннан кейін ғана жүктеледі
     this.boot = import('../server.js').catch(e => { console.error('boot error:', e && e.stack || e); throw e; });
@@ -67,7 +71,8 @@ export class Hub extends DurableObject {
     try {
       await this.waitReady(25000);
     } catch (e) {
-      return new Response('starting', { status: 503 });
+      console.error('503 starting:', e && e.message, 'upMs', Date.now() - this.bootAt);
+      return new Response('starting: ' + (e && e.message), { status: 503 });
     }
 
     if (url.pathname === '/ws') {
