@@ -89,7 +89,19 @@ export class Hub extends DurableObject {
     } finally { clearTimeout(timer); }
   }
 
+  // Кез келген қате 1101 экранының орнына оқылатын мәтінмен қайтады
   async fetch(request) {
+    try {
+      return await this.fetchInner(request);
+    } catch (e) {
+      const msg = String((e && e.stack) || e);
+      console.error('fetch error:', msg);
+      try { state.logErr && state.logErr('fetch', e); } catch {}
+      return new Response('ERROR\n' + msg, { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    }
+  }
+
+  async fetchInner(request) {
     const url = new URL(request.url);
     if (url.pathname === '/_debug') {
       let bootErr = null;
@@ -107,6 +119,7 @@ export class Hub extends DurableObject {
         clients: state.wss ? state.wss.clients.size : null,
         boots: (await this.ctx.storage.get('boots')) || [],
         errs: this.errs,
+        closes: state.closeLog || (await this.ctx.storage.get('closes')) || [],
         lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
         lastOut: state.lastOut || (await this.ctx.storage.get('lastOut')) || []
       });
@@ -181,7 +194,11 @@ export default {
       }
       return new Response(text, { status: r.status, headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' } });
     }
-    const stub = env.HUB.get(env.HUB.idFromName('main'));
-    return stub.fetch(request);
+    try {
+      const stub = env.HUB.get(env.HUB.idFromName('main'));
+      return await stub.fetch(request);
+    } catch (e) {
+      return new Response('ERROR (DO)\n' + String((e && e.stack) || e), { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    }
   }
 };
