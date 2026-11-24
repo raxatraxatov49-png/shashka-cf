@@ -12,7 +12,6 @@
 <link rel="stylesheet" href="rating.css">
 <link rel="stylesheet" href="nav.css?v=1">
 <link rel="stylesheet" href="menu.css?v=6">
-<link rel="stylesheet" href="tour.css?v=5">
 
 <style>
 .rprize{margin:0 0 12px;padding:12px;border-radius:16px;background:rgba(245,197,66,.10);border:1px solid rgba(245,197,66,.35)}
@@ -199,14 +198,6 @@
   <div id="ratingMe" class="rmewrap hidden"></div>
 </main>
 
-<main id="tour" class="screen">
-  <div class="sbar">
-    <button class="sback" data-back type="button" aria-label="Back">‹</button>
-    <h1 data-i18n="tourTitle">Турнир</h1>
-  </div>
-  <div id="tourBody" class="tbody"></div>
-</main>
-
 <main id="players" class="screen">
   <div class="sbar">
     <button class="sback" data-back type="button" aria-label="Back">‹</button>
@@ -216,42 +207,6 @@
   <p id="dndHint" class="dndhint" data-i18n="dndHint">Ай белгісі: «Мазаламаңыз» режимі. Қосылғанда сізді ешкім шақыра алмайды.</p>
   <p id="dndNote" class="dndnote" data-i18n="dndNote">Мазаламаңыз қосулы. Сіз онлайн көрінесіз, бірақ ешкім сізді шақыра алмайды. Сіз басқаларды шақыра аласыз.</p>
   <div id="plList" class="plscroll"></div>
-</main>
-
-<!-- Бұл экран ойындағы емес, жалпы чат экраны -->
-<main id="chat" class="screen">
-  <div class="sbar">
-    <button class="sback" data-back type="button" aria-label="Back">‹</button>
-    <h1 data-i18n="chatTitle">Шашка чат</h1>
-    <span id="chatHeadOnline" class="chhon"></span>
-    <button id="chMutesBtn" class="chmb hidden" type="button" aria-label="Muted">🔇</button>
-  </div>
-  <div class="chpin">📌 <span data-i18n="chatRule">Бір-біріңді сыйлаңдар. Сөгінген және жарнама таслаған адам навсегда блокталады.</span></div>
-  <div id="chatList" class="chlist"></div>
-  <div id="chatBar" class="chbar">
-    <textarea id="chatInp" rows="1" maxlength="300"></textarea>
-    <button id="chatSend" class="chsend" type="button" disabled aria-label="Send">➤</button>
-  </div>
-  <div id="chatMuted" class="chmuted hidden"><b id="chMutedT"></b><small id="chMutedS"></small></div>
-  <div id="chOv" class="chov"></div>
-  <section id="chSheet" class="chsheet">
-    <div id="chShT" class="chsht"></div>
-    <button id="chDel" class="chact del" type="button" data-i18n="chatDel">🗑 Хабарды өшіру</button>
-    <div id="chMuteBox">
-      <div class="chsl" data-i18n="chatMuteH">🔇 Чатқа жазуға тыйым салу</div>
-      <div class="chdurs">
-        <button data-ms="3600000" type="button" data-i18n="d1h">1 сағат</button>
-        <button data-ms="86400000" type="button" data-i18n="d1d">1 күн</button>
-        <button data-ms="604800000" type="button" data-i18n="d7d">7 күн</button>
-        <button data-ms="0" type="button" data-i18n="dFor">Мәңгі</button>
-      </div>
-    </div>
-    <button id="chBan" class="chact ban hidden" type="button" data-i18n="chatBanBtn">⛔ Қолданбадан мәңгі блоктау</button>
-  </section>
-  <section id="chSheet2" class="chsheet">
-    <div class="chsl" data-i18n="chatMutesBtn">Тыйым салынғандар</div>
-    <div id="chMList"></div>
-  </section>
 </main>
 
 <main id="game" class="screen">
