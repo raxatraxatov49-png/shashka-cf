@@ -37,12 +37,13 @@ export class Hub extends DurableObject {
     const lastPut = {};
     state.persist = (k, v) => {
       const now = Date.now();
-      if (now - (lastPut[k] || 0) < 60000) return;
+      if (now - (lastPut[k] || 0) < 600000) return;
       lastPut[k] = now;
       try { Promise.resolve(this.ctx.storage.put(k, v)).catch(() => {}); } catch {}
     };
     // Ойын күйін сақтау үшін (сервер қайта іске қосылса ойын жалғасады)
     state.putNow = (k, v) => this.ctx.storage.put(k, v);
+    state.getNow = (k) => this.ctx.storage.get(k);
     state.delNow = (k) => this.ctx.storage.delete(k);
     state.listNow = (prefix) => this.ctx.storage.list({ prefix });
     // Іске қосылу кешіксе де, кейін аяқталғанда DO қалпына келуі үшін ready ешқашан «қате» болмайды.
@@ -55,19 +56,18 @@ export class Hub extends DurableObject {
     state.logErr = (kind, e) => {
       errs.push({ at: new Date().toISOString(), kind, msg: String((e && e.stack) || e).slice(0, 600) });
       if (errs.length > 20) errs.shift();
-      try { Promise.resolve(this.ctx.storage.put('errs', errs)).catch(() => {}); } catch {}
     };
     this.errs = errs;
-    this.ctx.blockConcurrencyWhile(async () => {
+    // Іске қосылу уақытын 1 минуттан кейін ғана, бір рет жазамыз. Конструкторда жазу жоқ:
+    // лимит бітсе DO мүлде көтерілмей қалады.
+    setTimeout(async () => {
       try {
         const boots = (await this.ctx.storage.get('boots')) || [];
         boots.push(new Date(this.bootAt).toISOString());
         while (boots.length > 40) boots.shift();
         await this.ctx.storage.put('boots', boots);
-        const old = await this.ctx.storage.get('errs');
-        if (Array.isArray(old)) errs.unshift(...old.slice(-10));
       } catch {}
-    });
+    }, 60000);
     // server.js модулі бір isolate ішінде қайта орындалмайды: DO объектісі қайта жасалса,
     // listen() қайта шақырылмайды. Сондықтан сервер бұрын іске қосылған болса, бірден «дайын» деп аламыз.
     this.ready = state.isListening
@@ -119,7 +119,7 @@ export class Hub extends DurableObject {
         clients: state.wss ? state.wss.clients.size : null,
         boots: (await this.ctx.storage.get('boots')) || [],
         errs: this.errs,
-        closes: state.closeLog || (await this.ctx.storage.get('closes')) || [],
+        closes: state.closeLog || [],
         lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
         lastOut: state.lastOut || (await this.ctx.storage.get('lastOut')) || []
       });
