@@ -39,6 +39,10 @@ export class Hub extends DurableObject {
       lastPut[k] = now;
       try { Promise.resolve(this.ctx.storage.put(k, v)).catch(() => {}); } catch {}
     };
+    // Ойын күйін сақтау үшін (сервер қайта іске қосылса ойын жалғасады)
+    state.putNow = (k, v) => this.ctx.storage.put(k, v);
+    state.delNow = (k) => this.ctx.storage.delete(k);
+    state.listNow = (prefix) => this.ctx.storage.list({ prefix });
     // Іске қосылу кешіксе де, кейін аяқталғанда DO қалпына келуі үшін ready ешқашан «қате» болмайды.
     // Күту уақыты әр сұраныста бөлек шектеледі.
     this.bootAt = Date.now();
