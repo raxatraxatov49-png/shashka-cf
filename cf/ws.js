@@ -5,17 +5,10 @@ const IDLE_MS = 150000;      // осыдан ұзақ уақыт ешқанда�
 
 // Диагностика: үзілістердің себебін (код, кім жапты, қанша уақыт ашық болды) жазып отырамыз
 const closeLog = (state.closeLog = state.closeLog || []);
-let closeSaveTimer = null;
 function logClose(entry) {
   try {
     closeLog.push({ at: new Date().toISOString(), ...entry });
     if (closeLog.length > 60) closeLog.shift();
-    if (!closeSaveTimer && state.putNow) {
-      closeSaveTimer = setTimeout(() => {
-        closeSaveTimer = null;
-        try { Promise.resolve(state.putNow('closes', closeLog)).catch(() => {}); } catch {}
-      }, 3000);
-    }
   } catch {}
 }
 
