@@ -2094,7 +2094,7 @@ function persistGameSoon(g) {
     try {
       Promise.resolve(cf.putNow('game:' + g.id, gameSnapshot(g))).catch(() => {});
     } catch (e) {}
-  }, 1200);
+  }, 150);
 
   if (g._pt.unref) g._pt.unref();
 }
@@ -7484,6 +7484,9 @@ wss.on('connection', ws => {
   }, 10000);
 
   ws.on('message', raw => {
+    // Кез келген хабар байланыстың тірі екенін білдіреді (Workers-те ping/pong кадрлары сенімсіз)
+    ws.isAlive = true;
+
     let m;
 
     try {
@@ -7497,14 +7500,25 @@ wss.on('connection', ws => {
     }
 
     if (!ws.user) {
-      return m.t === 'auth'
-        ? onAuth(ws, m)
-        : undefined;
+      if (m.t !== 'auth') return;
+
+      try {
+        return onAuth(ws, m);
+      } catch (e) {
+        console.error('onAuth қатесі:', (e && e.stack) || e);
+        try { globalThis.__CF && globalThis.__CF.logErr && globalThis.__CF.logErr('onAuth', e); } catch {}
+        return;
+      }
     }
 
     if (ws.user.ws !== ws) return;
 
-    handle(ws.user, m);
+    try {
+      handle(ws.user, m);
+    } catch (e) {
+      console.error('handle қатесі [' + m.t + ']:', (e && e.stack) || e);
+      try { globalThis.__CF && globalThis.__CF.logErr && globalThis.__CF.logErr('handle:' + m.t, e); } catch {}
+    }
   });
 
   ws.on('close', () => {
