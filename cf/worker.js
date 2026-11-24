@@ -10,6 +10,8 @@ try {
   });
   globalThis.addEventListener('error', e => {
     console.error('uncaught:', (e.error && e.error.stack) || e.message);
+    try { state.logErr && state.logErr('uncaught', e.error || e.message); } catch {}
+    if (e.preventDefault) e.preventDefault();
   });
 } catch {}
 
@@ -47,6 +49,25 @@ export class Hub extends DurableObject {
     // Күту уақыты әр сұраныста бөлек шектеледі.
     this.bootAt = Date.now();
     this.isReady = false;
+
+    // Диагностика: DO қанша рет және қашан қайта іске қосылғанын, соңғы қателерді сақтаймыз
+    const errs = [];
+    state.logErr = (kind, e) => {
+      errs.push({ at: new Date().toISOString(), kind, msg: String((e && e.stack) || e).slice(0, 600) });
+      if (errs.length > 20) errs.shift();
+      try { Promise.resolve(this.ctx.storage.put('errs', errs)).catch(() => {}); } catch {}
+    };
+    this.errs = errs;
+    this.ctx.blockConcurrencyWhile(async () => {
+      try {
+        const boots = (await this.ctx.storage.get('boots')) || [];
+        boots.push(new Date(this.bootAt).toISOString());
+        while (boots.length > 40) boots.shift();
+        await this.ctx.storage.put('boots', boots);
+        const old = await this.ctx.storage.get('errs');
+        if (Array.isArray(old)) errs.unshift(...old.slice(-10));
+      } catch {}
+    });
     // server.js модулі бір isolate ішінде қайта орындалмайды: DO объектісі қайта жасалса,
     // listen() қайта шақырылмайды. Сондықтан сервер бұрын іске қосылған болса, бірден «дайын» деп аламыз.
     this.ready = state.isListening
@@ -84,6 +105,8 @@ export class Hub extends DurableObject {
         bootInfo: globalThis.__bootInfo || null,
         hasHandler: !!state.handler,
         clients: state.wss ? state.wss.clients.size : null,
+        boots: (await this.ctx.storage.get('boots')) || [],
+        errs: this.errs,
         lastIn: state.lastIn || (await this.ctx.storage.get('lastIn')) || [],
         lastOut: state.lastOut || (await this.ctx.storage.get('lastOut')) || []
       });
@@ -99,7 +122,11 @@ export class Hub extends DurableObject {
       if (request.headers.get('Upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
-      state.wss.accept(server);
+      try { state.wss.accept(server); } catch (e) {
+        console.error('ws accept error:', e && e.message);
+        try { server.close(1011, 'accept failed'); } catch {}
+        return new Response('ws error', { status: 500 });
+      }
       return new Response(null, { status: 101, webSocket: client });
     }
 
