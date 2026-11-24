@@ -5,8 +5,14 @@ module.exports = {
     state.handler = handler;
     return {
       listen(_port, cb) {
-        if (typeof cb === 'function') cb();
-        if (typeof state.listening === 'function') state.listening();
+        // «Дайын» белгісі жаһандық күйде сақталады: DO объектісі қайта жасалса да жоғалмайды
+        state.isListening = true;
+        try {
+          if (typeof cb === 'function') cb();
+        } finally {
+          // cb қате берсе де, сервер «дайын» деп белгіленеді
+          if (typeof state.listening === 'function') state.listening();
+        }
         return this;
       },
       on() { return this; },
