@@ -2214,6 +2214,7 @@ function startGame(m) {
 
   S.groupWaiting = S.g.waitingForOpponent;
 
+  try {
   setSearching(false);
 
   [
@@ -2306,10 +2307,15 @@ function startGame(m) {
   renderPieces();
 
   $('msgs').textContent = '';
-  m.chat.forEach((c) => addChat(c, true));
+  (m.chat || []).forEach((c) => addChat(c, true));
 
   updateBadge();
   refresh();
+  } catch (err) {
+    // Бір элемент қате берсе де, ойын экраны міндетті түрде ашылады
+    console.error('startGame қатесі:', err);
+    if (m.spectator) ptoast('⚠ ' + (err && err.message ? err.message : err));
+  }
   show('game');
 
   applySpectatorUi(Boolean(m.spectator));
