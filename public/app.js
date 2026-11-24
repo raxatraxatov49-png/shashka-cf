@@ -3098,6 +3098,19 @@ function showAway(m) {
 
 /* ---------- ЧАТ ---------- */
 
+// Әр ойыншының атына тұрақты түс береді.
+// addChat() ішінде қолданылатын chatColor функциясы бұрын анықталмаған еді.
+function chatColor(name) {
+  const value = String(name ?? '');
+  let hash = 0;
+
+  for (let i = 0; i < value.length; i++) {
+    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return `hsl(${Math.abs(hash) % 360}, 70%, 65%)`;
+}
+
 function addChat(m, silent) {
   if (!S.g) return;
 
