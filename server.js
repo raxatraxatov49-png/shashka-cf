@@ -2079,55 +2079,83 @@ function gameSnapshot(g) {
   };
 }
 
-// Жүріс сайын емес, 1,2 сек ішіндегі өзгерісті біріктіріп бір рет жазады
+// Cloudflare Free жоспарында Durable Object-ке күніне небәрі 100 000 жол жазуға болады (өшіру де жазу болып саналады).
+// Лимит бітсе, DO құлап, барлық ойыншы бірден ағытылады. Сондықтан барлық ойынды БІР кілтке жинап,
+// өзгеріс болса ең көбі 5 секунд сайын бір рет қана жазамыз (тәулігіне ең көбі ~17 000 жол).
+const SNAP_KEY = 'games_v2';
+const SNAP_EVERY_MS = 5000;
+let snapFlushTimer = null;
+let lastSnapWasEmpty = false;
+
+function snapEligible(g) {
+  return Boolean(g) && games.has(g.id) && !g.groupInfo && !g.bot && !g.waitingForOpponent && !(g.st && g.st.over);
+}
+
+function scheduleSnapFlush() {
+  if (snapFlushTimer) return;
+
+  snapFlushTimer = setTimeout(() => {
+    snapFlushTimer = null;
+
+    const cf = cfStore();
+
+    if (!cf || !cf.putNow) return;
+
+    try {
+      const out = {};
+
+      for (const g of games.values()) {
+        if (snapEligible(g)) out[g.id] = gameSnapshot(g);
+      }
+
+      // Әлі қайта қосылмаған (қалпына келтірілмеген) ойындар жоғалмауы үшін оларды да сақтап қалады
+      for (const snap of restoredSnaps.values()) {
+        if (snap && snap.id && !out[snap.id]) out[snap.id] = snap;
+      }
+
+      const empty = Object.keys(out).length === 0;
+
+      if (empty && lastSnapWasEmpty) return;
+
+      lastSnapWasEmpty = empty;
+
+      Promise.resolve(cf.putNow(SNAP_KEY, out)).catch(() => {});
+    } catch (e) {}
+  }, SNAP_EVERY_MS);
+
+  if (snapFlushTimer.unref) snapFlushTimer.unref();
+}
+
 function persistGameSoon(g) {
   const cf = cfStore();
 
-  if (!cf || !cf.putNow || !g || g._pt) return;
-  if (g.groupInfo || g.bot || g.waitingForOpponent || g.st.over) return;
+  if (!cf || !cf.putNow || !snapEligible(g)) return;
 
-  g._pt = setTimeout(() => {
-    g._pt = null;
-
-    if (!games.has(g.id) || g.st.over) return;
-
-    try {
-      Promise.resolve(cf.putNow('game:' + g.id, gameSnapshot(g))).catch(() => {});
-    } catch (e) {}
-  }, 150);
-
-  if (g._pt.unref) g._pt.unref();
+  scheduleSnapFlush();
 }
 
+// Ойын аяқталды: келесі жазуда ол тізімнен өзі түседі (жеке өшіру жазуы жасалмайды)
 function dropGameSnapshot(g) {
   const cf = cfStore();
 
-  if (g && g._pt) {
-    clearTimeout(g._pt);
-    g._pt = null;
-  }
+  if (!cf || !cf.putNow || !g) return;
 
-  if (!cf || !cf.delNow || !g) return;
-
-  try {
-    Promise.resolve(cf.delNow('game:' + g.id)).catch(() => {});
-  } catch (e) {}
+  scheduleSnapFlush();
 }
 
 async function loadPersistedGames() {
   const cf = cfStore();
 
-  if (!cf || !cf.listNow) return;
+  if (!cf || !cf.getNow) return;
 
   try {
-    const all = await cf.listNow('game:');
+    const all = (await cf.getNow(SNAP_KEY)) || {};
 
-    for (const [key, snap] of all) {
+    for (const snap of Object.values(all)) {
       if (
         !snap || !snap.p || !snap.st || !snap.id ||
         Date.now() - (snap.savedAt || 0) > GAME_SNAP_TTL
       ) {
-        try { cf.delNow(key); } catch (e) {}
         continue;
       }
 
