@@ -2044,6 +2044,171 @@ function broadcastStep(g, step) {
 
   if (g.st.turn !== g.turnTimerSide) startTurnTimer(g);
   else sendTurnTimer(g);
+
+  persistGameSoon(g);
+}
+
+/* ---------- Ойындарды сақтау (сервер қайта іске қосылса ойын жалғасуы үшін) ---------- */
+
+const GAME_SNAP_TTL = 10 * 60 * 1000;     // 10 минуттан ескі ойын қалпына келтірілмейді
+const restoredSnaps = new Map();           // ойыншы id -> сақталған ойын
+
+function cfStore() {
+  return process.env.CF_WORKER === '1' ? globalThis.__CF : null;
+}
+
+function gameSnapshot(g) {
+  const info = {};
+
+  for (const side of ['w', 'b']) {
+    const pu = users.get(g.p[side]);
+
+    info[side] = pu
+      ? { name: pu.name, username: pu.username || '', avatar: pu.avatar || null }
+      : null;
+  }
+
+  return {
+    id: g.id,
+    p: g.p,
+    st: g.st,
+    chat: (g.chat || []).slice(-30),
+    random: Boolean(g.random),
+    info,
+    savedAt: Date.now()
+  };
+}
+
+// Жүріс сайын емес, 1,2 сек ішіндегі өзгерісті біріктіріп бір рет жазады
+function persistGameSoon(g) {
+  const cf = cfStore();
+
+  if (!cf || !cf.putNow || !g || g._pt) return;
+  if (g.groupInfo || g.bot || g.waitingForOpponent || g.st.over) return;
+
+  g._pt = setTimeout(() => {
+    g._pt = null;
+
+    if (!games.has(g.id) || g.st.over) return;
+
+    try {
+      Promise.resolve(cf.putNow('game:' + g.id, gameSnapshot(g))).catch(() => {});
+    } catch (e) {}
+  }, 1200);
+
+  if (g._pt.unref) g._pt.unref();
+}
+
+function dropGameSnapshot(g) {
+  const cf = cfStore();
+
+  if (g && g._pt) {
+    clearTimeout(g._pt);
+    g._pt = null;
+  }
+
+  if (!cf || !cf.delNow || !g) return;
+
+  try {
+    Promise.resolve(cf.delNow('game:' + g.id)).catch(() => {});
+  } catch (e) {}
+}
+
+async function loadPersistedGames() {
+  const cf = cfStore();
+
+  if (!cf || !cf.listNow) return;
+
+  try {
+    const all = await cf.listNow('game:');
+
+    for (const [key, snap] of all) {
+      if (
+        !snap || !snap.p || !snap.st || !snap.id ||
+        Date.now() - (snap.savedAt || 0) > GAME_SNAP_TTL
+      ) {
+        try { cf.delNow(key); } catch (e) {}
+        continue;
+      }
+
+      const n = Number(String(snap.id).slice(1));
+
+      if (n > gameSeq) gameSeq = n;
+
+      restoredSnaps.set(String(snap.p.w), snap);
+      restoredSnaps.set(String(snap.p.b), snap);
+    }
+
+    if (restoredSnaps.size) {
+      console.log('Қалпына келтірілетін ойындар:', restoredSnaps.size / 2);
+    }
+  } catch (e) {
+    console.error('Ойындарды жүктеу қатесі:', e && e.message);
+  }
+}
+
+// Ойыншы қайта қосылғанда, оның үзілген ойынын серверге қайтарады
+function restoreGameFor(u) {
+  const snap = restoredSnaps.get(String(u.id));
+
+  if (!snap) return;
+
+  restoredSnaps.delete(String(snap.p.w));
+  restoredSnaps.delete(String(snap.p.b));
+
+  if (games.has(snap.id) || (u.game && games.has(u.game))) return;
+
+  const g = {
+    id: snap.id,
+    p: snap.p,
+    st: snap.st,
+    chat: Array.isArray(snap.chat) ? snap.chat : [],
+    timers: {},
+    turnTimer: null,
+    turnDeadline: null,
+    turnTimerSide: null,
+    lastChat: {},
+    groupInfo: null,
+    random: Boolean(snap.random),
+    waitingForOpponent: false
+  };
+
+  games.set(g.id, g);
+
+  for (const side of ['w', 'b']) {
+    const pid = String(g.p[side]);
+    let pu = users.get(pid);
+
+    if (!pu) {
+      const i = (snap.info && snap.info[side]) || {};
+
+      pu = {
+        id: pid,
+        name: i.name || 'Ойыншы',
+        username: i.username || '',
+        avatar: i.avatar || null,
+        game: null,
+        ws: null
+      };
+
+      users.set(pid, pu);
+    }
+
+    pu.game = g.id;
+  }
+
+  const mySide = sideOfUser(g, u.id);
+  const oppId = g.p[G.other(mySide)];
+  const opp = users.get(oppId);
+
+  // Қарсылас GRACE ішінде қайта қосылмаса, жеңіс осы ойыншыға беріледі
+  if (!(opp && opp.ws && opp.ws.readyState === 1)) {
+    g.timers[oppId] = setTimeout(() => {
+      finish(g, mySide, 'left');
+    }, GRACE * 1000);
+  }
+
+  startTurnTimer(g);
 }
 
 function scheduleBot(g, delay) {
@@ -2265,6 +2430,7 @@ function startGame(a, b, groupInfo = null, random = false) {
   send(b, gameState(g, b.id));
 
   startTurnTimer(g);
+  persistGameSoon(g);
 
   return g;
 }
@@ -5531,6 +5697,7 @@ function finish(g, winner, reason) {
   if (!games.has(g.id)) return;
 
   games.delete(g.id);
+  dropGameSnapshot(g);
 
   clearTurnTimer(g);
 
@@ -7207,6 +7374,8 @@ function onAuth(ws, m) {
     }
   }
 
+  restoreGameFor(u);
+
   const g = u.game && games.get(u.game);
 
   if (g) {
@@ -7462,7 +7631,7 @@ if (require.main === module || process.env.CF_WORKER === '1') {
     process.once('SIGINT', () => shutdown('SIGINT'));
   }
 
-  initStorage().then(() => {
+  initStorage().then(loadPersistedGames).then(() => {
     server.listen(PORT, () => {
       console.log(
         `Shashka сервері: http://localhost:${PORT}` +
