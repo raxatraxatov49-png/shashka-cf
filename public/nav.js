@@ -10,7 +10,7 @@
   };
 
   var TABS = [
-    { id: 'menu', screens: ['menu', 'players', 'tour'], icon: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>' },
+    { id: 'menu', screens: ['menu', 'players'], icon: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>' },
     { id: 'rating', screens: ['rating'], icon: '<path d="M8 20V9M12 20V4M16 20v-8"/>' },
     { id: 'vip', screens: [], icon: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>' },
     { id: 'shop', screens: ['shop', 'coins', 'refs'], icon: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>' },
