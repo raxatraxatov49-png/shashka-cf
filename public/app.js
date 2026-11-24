@@ -1580,7 +1580,37 @@ function connect() {
 
   S.ws = ws;
 
+  let closed = false;
+
+  // Жабылғанда қайта қосылуды бір рет қана жоспарлайды (jitter: барлығы бір мезгілде қосылмасын)
+  const handleClose = () => {
+    if (closed) return;
+    closed = true;
+    clearTimeout(openTimer);
+
+    if (S.ws !== ws || S.fatal) return;
+
+    S.ws = null;
+
+    $('conn').classList.remove('hidden');
+    setSearching(false);
+
+    setTimeout(
+      connect,
+      Math.min(1000 * 2 ** S.retry++, 5000) + Math.random() * 1000
+    );
+  };
+
+  // Қосылу 8 секундта ашылмаса (сервер қайта іске қосылып жатса) тұрып қалмай, қайта әрекеттенеміз
+  const openTimer = setTimeout(() => {
+    if (ws.readyState === WebSocket.CONNECTING) {
+      try { ws.close(); } catch (e) {}
+      handleClose();
+    }
+  }, 8000);
+
   ws.onopen = () => {
+    clearTimeout(openTimer);
     S.retry = 0;
     S.lastRx = Date.now();
     $('conn').classList.add('hidden');
@@ -1618,19 +1648,7 @@ function connect() {
     }
   };
 
-  ws.onclose = () => {
-    if (S.ws !== ws || S.fatal) return;
-
-    S.ws = null;
-
-    $('conn').classList.remove('hidden');
-    setSearching(false);
-
-    setTimeout(
-      connect,
-      Math.min(1000 * 2 ** S.retry++, 5000)
-    );
-  };
+  ws.onclose = handleClose;
 
   ws.onerror = (e) => {
     console.error('WebSocket қатесі:', e);
