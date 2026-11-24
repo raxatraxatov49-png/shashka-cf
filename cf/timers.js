@@ -1,6 +1,19 @@
 // Node-тағы setTimeout/setInterval қайтаратын объектінің .unref()/.ref() әдістері Workers-те жоқ болуы мүмкін.
-const wrap = fn => (...args) => {
-  const id = fn(...args);
+// Таймер ішіндегі ұсталмаған қате Durable Object-ті құлатып, барлық ойыншыны бірден ағытады.
+// Сондықтан әр callback қауіпсіз қабықпен орайды.
+const guard = cb => typeof cb !== 'function' ? cb : (...a) => {
+  try {
+    const r = cb(...a);
+    if (r && typeof r.catch === 'function') {
+      r.catch(e => console.error('timer async error:', (e && e.stack) || e));
+    }
+  } catch (e) {
+    console.error('timer error:', (e && e.stack) || e);
+    try { globalThis.__CF && globalThis.__CF.logErr && globalThis.__CF.logErr('timer', e); } catch {}
+  }
+};
+const wrap = fn => (cb, ...args) => {
+  const id = fn(guard(cb), ...args);
   if (id !== null && typeof id === 'object') {
     if (typeof id.unref !== 'function') id.unref = () => id;
     if (typeof id.ref !== 'function') id.ref = () => id;
