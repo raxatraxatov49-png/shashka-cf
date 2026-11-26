@@ -4519,6 +4519,7 @@ function tourRoundText(t) {
   });
 
   s += `\n✅ ${done}/${total} ойын аяқталды`;
+  s += '\n\n🎮 Өз жұбыңның батырмасын бас (тек сол екі ойыншы кіре алады). Сілтеме жеке чатқа да жіберілді.';
 
   return s;
 }
@@ -4528,7 +4529,7 @@ function tourRefreshRound(t) {
 
   t.roundEditTimer = setTimeout(() => {
     t.roundEditTimer = null;
-    tourEdit(t.chatId, t.roundMsgId, tourRoundText(t));
+    tourEdit(t.chatId, t.roundMsgId, tourRoundText(t), tourRoundKeyboard(t));
   }, 1500);
 }
 
@@ -4568,6 +4569,7 @@ async function tourRunRound(t) {
 
   t.roundMsgId = await tourSend(t.chatId, tourRoundText(t));
 
+  tourPin(t.chatId, t.roundMsgId);
   tourDelete(t.chatId, oldRound);
   oldTmp.forEach(id => tourDelete(t.chatId, id));
 
@@ -4578,11 +4580,14 @@ async function tourRunRound(t) {
     await tourOpenMatch(t, m);
     await tourSleep(80);
   }
+
+  // Барлық жұптың сілтемесі дайын: батырмаларды кестеге қосамыз
+  await tourEdit(t.chatId, t.roundMsgId, tourRoundText(t), tourRoundKeyboard(t));
 }
 
 async function tourDM(player, text, link) {
   try {
-    await telegramApi('sendMessage', {
+    const r = await telegramApi('sendMessage', {
       chat_id: player.id,
       text,
       parse_mode: 'HTML',
@@ -4591,14 +4596,55 @@ async function tourDM(player, text, link) {
       }
     });
 
-    return true;
+    return r.result.message_id;
   } catch (error) {
     console.error('Турнир DM жіберілмеді:', player.id, error.message);
-    return false;
+    return null;
   }
 }
 
+// Ойын біткен соң жеке чаттағы хабарларды өшіреміз
+function tourClearDMs(m) {
+  for (const d of m.dms || []) tourDelete(d.chat, d.id);
+  m.dms = [];
+}
+
+// Кестені топта бекітеміз (бот админ болып, «хабар бекіту» құқығы болуы керек)
+async function tourPin(chatId, messageId) {
+  if (!messageId) return;
+
+  try {
+    await telegramApi('pinChatMessage', {
+      chat_id: chatId,
+      message_id: messageId,
+      disable_notification: true
+    });
+  } catch (error) {
+    console.error('Кесте бекітілмеді:', error.message);
+  }
+}
+
+// Топтағы кесте астындағы «Ойынға кіру» батырмалары (әр жұпқа бір батырма)
+function tourRoundKeyboard(t) {
+  const short = p => {
+    const n = playerName(p);
+    return n.length > 14 ? n.slice(0, 13) + '…' : n;
+  };
+
+  const rows = t.pairs
+    .filter(m => !m.bye && !m.w && !m.out && m.link)
+    .map(m => [{
+      text: `🎮 ${short(m.a)} ⚔️ ${short(m.b)}`,
+      url: m.link
+    }]);
+
+  return { inline_keyboard: rows };
+}
+
 async function tourOpenMatch(t, m, note) {
+  tourClearDMs(m);
+  m.dms = [];
+
   // Басқа топтық бөлмеде тұрған болса, оны жабамыз
   for (const p of [m.a, m.b]) {
     const old = groupPlayerRooms.get(p.id);
@@ -4646,6 +4692,8 @@ async function tourOpenMatch(t, m, note) {
 
   const link = MINI_APP_LINK + 'group_' + createSharedToken(room);
 
+  m.link = link;
+
   for (const [me, opp] of [[m.a, m.b], [m.b, m.a]]) {
     const text =
       `🏆 <b>${t.title}</b>\n\n` +
@@ -4653,9 +4701,11 @@ async function tourOpenMatch(t, m, note) {
       `⚔️ Қарсыласың: ${playerLink(opp)}\n` +
       `⏳ Ойынға ${TOUR_ENTER_MS / 60000} минут ішінде кір.`;
 
-    const ok = await tourDM(me, text, link);
+    const dmId = await tourDM(me, text, link);
 
-    if (!ok) {
+    if (dmId) {
+      m.dms.push({ chat: me.id, id: dmId });
+    } else {
       const id = await tourSend(
         t.chatId,
         `⚠️ ${playerLink(me)}, бот саған жеке жаза алмады.\n` +
@@ -4707,6 +4757,8 @@ function tourMatchDone(t, m, winner, bothOut) {
     if (room) clearTimeout(room.tourTimer);
     cleanupGroupRoom(m.code);
   }
+
+  tourClearDMs(m);
 
   // Тең ойын: қайта ойнатамыз (3 реттен кейін кездейсоқ)
   if (!winner && !bothOut) {
@@ -4797,6 +4849,8 @@ function tourAbort(chatId) {
       if (room) clearTimeout(room.tourTimer);
       cleanupGroupRoom(m.code);
     }
+
+    tourClearDMs(m);
   }
 
   t.phase = 'aborted';
@@ -5232,6 +5286,21 @@ async function handleTelegramWebhook(req, res) {
     const message = update.message;
 
     if (!message) {
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
+    /* Турнир кестесін бекіткенде шығатын қызметтік хабарды өшіру */
+
+    if (
+      message.pinned_message &&
+      message.from &&
+      message.from.is_bot &&
+      message.chat &&
+      tournaments.has(String(message.chat.id))
+    ) {
+      tourDelete(message.chat.id, message.message_id);
+
       res.writeHead(200);
       return res.end('ok');
     }
@@ -6112,6 +6181,39 @@ async function setupTelegramWebhook() {
         ],
         scope: {
           type: 'all_group_chats'
+        },
+        ...extra
+      });
+
+      await telegramApi('setMyCommands', {
+        commands: [
+          {
+            command: 'game',
+            description: tx(lang, 'cmdGame')
+          },
+          {
+            command: 'turnir',
+            description: {
+              kk: 'Турнир ашу (админ)',
+              ru: 'Открыть турнир (админ)',
+              uz: 'Turnir ochish (admin)'
+            }[lang] || 'Турнир'
+          },
+          {
+            command: 'rating',
+            description: tx(lang, 'cmdRating')
+          },
+          {
+            command: 'me',
+            description: tx(lang, 'cmdMe')
+          },
+          {
+            command: 'language',
+            description: tx(lang, 'cmdLanguage')
+          }
+        ],
+        scope: {
+          type: 'all_chat_administrators'
         },
         ...extra
       });
