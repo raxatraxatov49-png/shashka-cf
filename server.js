@@ -2603,6 +2603,7 @@ function blockGroup(id) {
 
   blockedGroups.add(id);
   saveBlockedGroups();
+  tourAbort(id);
 
   // Осы топтағы барлық бөлмелерді жабу
   for (const [code, room] of [...groupRooms.entries()]) {
@@ -4129,10 +4130,685 @@ async function announceGroupGame(room) {
   }
 }
 
+/* ---------- Топтағы ТУРНИР (/turnir) ---------- */
+
+const TOUR_MAX = 64;
+const TOUR_REG_MS = 5 * 60 * 1000;     // тіркелу уақыты
+const TOUR_ENTER_MS = 3 * 60 * 1000;   // ойынға кіру уақыты
+const tournaments = new Map();         // chatId -> турнир
+const tourUsers = new Map();           // userId -> chatId (бір уақытта бір турнир)
+
+const tourSleep = ms => new Promise(r => setTimeout(r, ms));
+
+function tourStartLink() {
+  return MINI_APP_LINK.replace('?startapp=', '?start=turnir');
+}
+
+function tourPlayer(from) {
+  return {
+    id: String(from.id),
+    username: from.username || '',
+    first_name: from.first_name || '',
+    last_name: from.last_name || ''
+  };
+}
+
+function tourShuffle(arr) {
+  const a = [...arr];
+
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+
+  return a;
+}
+
+async function tourSend(chatId, text, extra) {
+  try {
+    const r = await telegramApi('sendMessage', {
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      ...(extra || {})
+    });
+
+    return r.result.message_id;
+  } catch (error) {
+    console.error('Турнир хабары жіберілмеді:', error.message);
+    return null;
+  }
+}
+
+async function tourEdit(chatId, messageId, text, markup) {
+  if (!messageId) return;
+
+  try {
+    await telegramApi('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: markup || { inline_keyboard: [] }
+    });
+  } catch (error) {
+    if (!String(error.message).includes('not modified')) {
+      console.error('Турнир хабары өзгертілмеді:', error.message);
+    }
+  }
+}
+
+async function tourDelete(chatId, messageId) {
+  if (!messageId) return;
+
+  try {
+    await telegramApi('deleteMessage', {
+      chat_id: chatId,
+      message_id: messageId
+    });
+  } catch (error) {}
+}
+
+// Қысқа мерзімді хабар: біраздан кейін өзі өшеді
+function tourTemp(chatId, text, ms = 6000) {
+  tourSend(chatId, text).then(id => {
+    if (id) setTimeout(() => tourDelete(chatId, id), ms);
+  });
+}
+
+async function tourIsChatAdmin(chatId, userId) {
+  if (isAdmin(String(userId))) return true;
+
+  try {
+    const m = await telegramApi('getChatMember', {
+      chat_id: chatId,
+      user_id: userId
+    });
+
+    return ['creator', 'administrator'].includes(
+      m.result && m.result.status
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
+function tourClear(t) {
+  clearTimeout(t.regTimer);
+  clearInterval(t.tick);
+  clearTimeout(t.editTimer);
+  clearTimeout(t.roundEditTimer);
+}
+
+function tourForget(t) {
+  const key = String(t.chatId);
+
+  for (const p of t.players) {
+    if (tourUsers.get(p.id) === key) tourUsers.delete(p.id);
+  }
+
+  if (tournaments.get(key) === t) tournaments.delete(key);
+}
+
+/* ----- Тіркелу ----- */
+
+function tourRegText(t) {
+  const left = Math.max(0, Math.ceil((t.deadline - Date.now()) / 60000));
+
+  const list = t.players.length
+    ? t.players.map(playerLink).join(', ')
+    : '<i>Әзірге ешкім жоқ</i>';
+
+  return (
+    '🏆 <b>ШАШКА ТУРНИРІ</b>\n\n' +
+    'Тіркелу ашық!\n' +
+    `👥 Ойыншылар: <b>${t.players.length}/${TOUR_MAX}</b>\n` +
+    `⏳ Автостарт: <b>~${left} мин</b> кейін немесе ${TOUR_MAX} адам толғанда\n\n` +
+    list
+  );
+}
+
+function tourRegKeyboard() {
+  return {
+    inline_keyboard: [[
+      { text: '✅ Қосылу', callback_data: 'tr:j' },
+      { text: '▶️ Бастау', callback_data: 'tr:s' }
+    ]]
+  };
+}
+
+// Хабарды жиі өзгертпеу үшін 2 секундқа біріктіреміз
+function tourRefreshReg(t) {
+  if (t.phase !== 'reg' || t.editTimer) return;
+
+  t.editTimer = setTimeout(() => {
+    t.editTimer = null;
+
+    if (t.phase === 'reg') {
+      tourEdit(t.chatId, t.regMsgId, tourRegText(t), tourRegKeyboard());
+    }
+  }, 2000);
+}
+
+async function handleTurnirCommand(message) {
+  const chat = message.chat;
+  const key = String(chat.id);
+  const uid = String(message.from.id);
+
+  await registerGroup(chat);
+  tourDelete(chat.id, message.message_id);
+
+  const isStop = /^\/turnir(?:@\w+)?\s+(stop|cancel|тоқта)/i.test(message.text);
+
+  if (!(await tourIsChatAdmin(chat.id, uid))) {
+    return tourTemp(chat.id, '⛔ Турнирді тек топ админдері басқара алады.');
+  }
+
+  if (isStop) {
+    const old = tournaments.get(key);
+
+    if (!old) return tourTemp(chat.id, 'ℹ️ Белсенді турнир жоқ.');
+
+    tourAbort(chat.id);
+
+    for (const id of [old.regMsgId, old.roundMsgId, old.startMsgId, ...(old.tmpMsgs || [])]) {
+      tourDelete(chat.id, id);
+    }
+
+    return tourTemp(chat.id, '🛑 Турнир тоқтатылды.');
+  }
+
+  if (tournaments.has(key)) {
+    return tourTemp(chat.id, '⏳ Бұл топта турнир әлдеқашан жүріп жатыр.');
+  }
+
+  const t = {
+    chatId: chat.id,
+    creatorId: uid,
+    phase: 'reg',
+    players: [],
+    deadline: Date.now() + TOUR_REG_MS,
+    regMsgId: null,
+    startMsgId: null,
+    roundMsgId: null,
+    tmpMsgs: [],
+    byes: new Set(),
+    alive: [],
+    pairs: [],
+    round: 0,
+    pending: 0
+  };
+
+  tournaments.set(key, t);
+
+  t.regMsgId = await tourSend(chat.id, tourRegText(t), {
+    reply_markup: tourRegKeyboard()
+  });
+
+  if (!t.regMsgId) {
+    tournaments.delete(key);
+    return;
+  }
+
+  t.regTimer = setTimeout(() => {
+    tourBegin(t, 'time').catch(e => console.error(e.message));
+  }, TOUR_REG_MS);
+
+  t.tick = setInterval(() => tourRefreshReg(t), 60 * 1000);
+}
+
+async function handleTourCallback(query) {
+  const data = String(query.data || '');
+  const chat = query.message && query.message.chat;
+
+  if (!chat) {
+    await answerCallback(query.id, '');
+    return true;
+  }
+
+  const key = String(chat.id);
+  const t = tournaments.get(key);
+
+  if (!t || t.phase !== 'reg' || query.message.message_id !== t.regMsgId) {
+    await answerCallback(query.id, 'Тіркелу жабық', true);
+    return true;
+  }
+
+  const uid = String(query.from.id);
+
+  if (data === 'tr:s') {
+    if (!(await tourIsChatAdmin(chat.id, uid))) {
+      await answerCallback(query.id, '⛔ Турнирді тек топ админдері бастай алады', true);
+      return true;
+    }
+
+    await answerCallback(query.id, '▶️');
+    tourBegin(t, 'admin').catch(e => console.error(e.message));
+    return true;
+  }
+
+  if (data !== 'tr:j') {
+    await answerCallback(query.id, '');
+    return true;
+  }
+
+  if (t.players.some(p => p.id === uid)) {
+    await answerCallback(query.id, 'Сен тізімдесің ✅');
+    return true;
+  }
+
+  if (t.players.length >= TOUR_MAX) {
+    await answerCallback(query.id, 'Орын қалмады', true);
+    return true;
+  }
+
+  const other = tourUsers.get(uid);
+
+  if (other && other !== key) {
+    await answerCallback(query.id, 'Сен басқа топтағы турнирдесің', true);
+    return true;
+  }
+
+  if (groupPlayerRooms.has(uid)) {
+    await answerCallback(query.id, 'Алдымен ағымдағы ойыныңды аяқта', true);
+    return true;
+  }
+
+  // Бот жеке чатқа жаза алуы үшін адам ботқа бір рет кіруі керек
+  if (!stats.users[uid] || unreachableUsers.has(uid)) {
+    try {
+      await telegramApi('answerCallbackQuery', {
+        callback_query_id: query.id,
+        text: 'Алдымен ботқа кіріп /start бас, сосын қайта Қосылу бас',
+        url: tourStartLink()
+      });
+    } catch (error) {
+      await answerCallback(
+        query.id,
+        'Алдымен ботқа жеке кіріп /start бас, сосын қайта Қосылу бас',
+        true
+      );
+    }
+
+    return true;
+  }
+
+  t.players.push(tourPlayer(query.from));
+  tourUsers.set(uid, key);
+
+  await answerCallback(query.id, 'Қосылдың ✅');
+
+  if (t.players.length >= TOUR_MAX) {
+    tourBegin(t, 'full').catch(e => console.error(e.message));
+  } else {
+    tourRefreshReg(t);
+  }
+
+  return true;
+}
+
+/* ----- Турнир жүрісі ----- */
+
+async function tourBegin(t, why) {
+  if (t.phase !== 'reg') return;
+
+  t.phase = 'play';
+  tourClear(t);
+
+  tourDelete(t.chatId, t.regMsgId);
+
+  if (t.players.length < 2) {
+    tourForget(t);
+    tourTemp(t.chatId, '❌ Ойыншы жеткіліксіз — турнир бас тартылды.', 8000);
+    return;
+  }
+
+  t.alive = tourShuffle(t.players);
+
+  const reason = why === 'full'
+    ? ` (${TOUR_MAX} адам толды)`
+    : why === 'time'
+      ? ' (5 минут өтті)'
+      : ' (админ бастады)';
+
+  t.startMsgId = await tourSend(
+    t.chatId,
+    `🚀 <b>Турнир басталды!</b>\n👥 ${t.players.length} ойыншы${reason}`
+  );
+
+  await tourRunRound(t);
+}
+
+function tourRoundTitle(t) {
+  const n = t.alive.length;
+
+  if (n === 2) return '🏁 ФИНАЛ';
+  if (n <= 4) return '🥈 ЖАРТЫЛАЙ ФИНАЛ';
+  if (n <= 8) return '🥉 ШЕРЕК ФИНАЛ';
+
+  return `⚔️ ${t.round}-КЕЗЕҢ`;
+}
+
+function tourCell(p, m) {
+  if (!p) return '—';
+
+  const link = playerLink(p);
+
+  if (!m.w && !m.out) return link;
+
+  return m.w === p ? `<b>${link}</b>` : `<s>${link}</s>`;
+}
+
+function tourRoundText(t) {
+  let s = `<b>${t.title}</b>\n\n`;
+  let done = 0;
+  let total = 0;
+
+  t.pairs.forEach((m, i) => {
+    if (m.bye) {
+      s += `${i + 1}. ${playerLink(m.a)} — автоматты өтті\n`;
+      return;
+    }
+
+    total++;
+    if (m.w || m.out) done++;
+
+    s += `${i + 1}. ${tourCell(m.a, m)} ⚔️ ${tourCell(m.b, m)}${m.out ? ' — екеуі де шықты' : m.w ? '' : ' ⏳'}\n`;
+  });
+
+  s += `\n✅ ${done}/${total} ойын аяқталды`;
+
+  return s;
+}
+
+function tourRefreshRound(t) {
+  if (t.roundEditTimer) return;
+
+  t.roundEditTimer = setTimeout(() => {
+    t.roundEditTimer = null;
+    tourEdit(t.chatId, t.roundMsgId, tourRoundText(t));
+  }, 1500);
+}
+
+async function tourRunRound(t) {
+  if (tournaments.get(String(t.chatId)) !== t) return;
+
+  t.round++;
+  t.title = tourRoundTitle(t);
+
+  let list = [...t.alive];
+  let bye = null;
+
+  // Тақ болса, бір ойыншы автомат өтеді (қатарынан екі рет емес)
+  if (list.length % 2) {
+    const fresh = list.filter(p => !t.byes.has(p.id));
+    const pool = fresh.length ? fresh : list;
+
+    bye = pool[Math.floor(Math.random() * pool.length)];
+    list = list.filter(p => p !== bye);
+    t.byes.add(bye.id);
+  }
+
+  t.pairs = [];
+
+  for (let i = 0; i < list.length; i += 2) {
+    t.pairs.push({ a: list[i], b: list[i + 1], w: null, code: null, draws: 0 });
+  }
+
+  if (bye) {
+    t.pairs.push({ a: bye, b: null, w: bye, bye: true });
+  }
+
+  t.pending = t.pairs.filter(m => !m.bye).length;
+
+  const oldRound = t.roundMsgId;
+  const oldTmp = t.tmpMsgs.splice(0);
+
+  t.roundMsgId = await tourSend(t.chatId, tourRoundText(t));
+
+  tourDelete(t.chatId, oldRound);
+  oldTmp.forEach(id => tourDelete(t.chatId, id));
+
+  for (const m of t.pairs) {
+    if (m.bye) continue;
+    if (tournaments.get(String(t.chatId)) !== t) return;
+
+    await tourOpenMatch(t, m);
+    await tourSleep(80);
+  }
+}
+
+async function tourDM(player, text, link) {
+  try {
+    await telegramApi('sendMessage', {
+      chat_id: player.id,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🎮 ОЙНАУ', url: link }]]
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Турнир DM жіберілмеді:', player.id, error.message);
+    return false;
+  }
+}
+
+async function tourOpenMatch(t, m, note) {
+  // Басқа топтық бөлмеде тұрған болса, оны жабамыз
+  for (const p of [m.a, m.b]) {
+    const old = groupPlayerRooms.get(p.id);
+    if (old) cleanupGroupRoom(old);
+  }
+
+  const code = crypto.randomBytes(6).toString('hex');
+
+  const room = {
+    code,
+    chatId: t.chatId,
+    commandMessageId: null,
+    messageId: null,
+    players: [m.a, m.b],
+    entered: new Set(),
+    connected: new Set(),
+    tokens: new Map(),
+    pendingGame: null,
+    started: false,
+    timer: null,
+    searchTimer: null,
+    waitingTimer: null,
+    waitingDeadline: null,
+    firstConnectedId: null,
+    sharedToken: null,
+    privateSent: 0,
+    tour: { chatId: t.chatId, match: m }
+  };
+
+  groupPlayerRooms.set(m.a.id, code);
+  groupPlayerRooms.set(m.b.id, code);
+
+  room.timer = setTimeout(() => cleanupGroupRoom(code), 60 * 60 * 1000);
+  if (room.timer.unref) room.timer.unref();
+
+  m.code = code;
+  groupRooms.set(code, room);
+
+  room.tourTimer = setTimeout(
+    () => tourEnterTimeout(t, m, room),
+    TOUR_ENTER_MS
+  );
+
+  if (room.tourTimer.unref) room.tourTimer.unref();
+
+  const link = MINI_APP_LINK + 'group_' + createSharedToken(room);
+
+  for (const [me, opp] of [[m.a, m.b], [m.b, m.a]]) {
+    const text =
+      `🏆 <b>${t.title}</b>\n\n` +
+      (note ? note + '\n\n' : '') +
+      `⚔️ Қарсыласың: ${playerLink(opp)}\n` +
+      `⏳ Ойынға ${TOUR_ENTER_MS / 60000} минут ішінде кір.`;
+
+    const ok = await tourDM(me, text, link);
+
+    if (!ok) {
+      const id = await tourSend(
+        t.chatId,
+        `⚠️ ${playerLink(me)}, бот саған жеке жаза алмады.\n` +
+        'Ботқа жеке кіріп /start бас немесе мына батырмамен ойынға кір:',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎮 ОЙНАУ', url: link }],
+              [{ text: '🤖 Ботты бастау', url: tourStartLink() }]
+            ]
+          }
+        }
+      );
+
+      if (id) t.tmpMsgs.push(id);
+    }
+  }
+}
+
+// Ешкім кірмесе: екі ойыншы да турнирден шығады. Біреу кірсе, әдеттегі 90 секундтық күту жұмыс істейді
+function tourEnterTimeout(t, m, room) {
+  if (groupRooms.get(room.code) !== room || room.started || m.w) return;
+  if (room.connected.size > 0) return;
+
+  tourMatchDone(t, m, null, true);
+}
+
+function tourOnGameEnd(room, winnerId) {
+  const t = tournaments.get(String(room.tour.chatId));
+  const m = room.tour.match;
+
+  if (!t) {
+    cleanupGroupRoom(room.code);
+    return;
+  }
+
+  const w = winnerId
+    ? [m.a, m.b].find(p => p.id === String(winnerId))
+    : null;
+
+  tourMatchDone(t, m, w || null);
+}
+
+function tourMatchDone(t, m, winner, bothOut) {
+  if (m.w || m.out || tournaments.get(String(t.chatId)) !== t) return;
+
+  if (m.code) {
+    const room = groupRooms.get(m.code);
+    if (room) clearTimeout(room.tourTimer);
+    cleanupGroupRoom(m.code);
+  }
+
+  // Тең ойын: қайта ойнатамыз (3 реттен кейін кездейсоқ)
+  if (!winner && !bothOut) {
+    m.draws = (m.draws || 0) + 1;
+
+    if (m.draws < 3) {
+      tourOpenMatch(t, m, '🤝 Ойын тең аяқталды, қайта ойнаңдар!')
+        .catch(e => console.error(e.message));
+      return;
+    }
+
+    winner = Math.random() < 0.5 ? m.a : m.b;
+  }
+
+  const losers = bothOut ? [m.a, m.b] : [winner === m.a ? m.b : m.a];
+
+  if (bothOut) m.out = true;
+  else m.w = winner;
+
+  for (const loser of losers) {
+    if (tourUsers.get(loser.id) === String(t.chatId)) {
+      tourUsers.delete(loser.id);
+    }
+  }
+
+  tourRefreshRound(t);
+
+  t.pending--;
+
+  if (t.pending <= 0) {
+    setTimeout(() => {
+      tourAdvance(t).catch(e => console.error(e.message));
+    }, 3000);
+  }
+}
+
+async function tourAdvance(t) {
+  if (tournaments.get(String(t.chatId)) !== t) return;
+
+  t.alive = t.pairs.map(m => m.w).filter(Boolean);
+
+  if (t.alive.length <= 1) {
+    await tourFinish(t);
+    return;
+  }
+
+  await tourRunRound(t);
+}
+
+async function tourFinish(t) {
+  const champ = t.alive[0] || null;
+  const cm = champ ? t.pairs.find(m => m.w === champ) : null;
+  const second = cm && cm.b ? (cm.w === cm.a ? cm.b : cm.a) : null;
+
+  tourClear(t);
+
+  const roundMsgId = t.roundMsgId;
+  const startMsgId = t.startMsgId;
+  const tmp = t.tmpMsgs.splice(0);
+
+  tourForget(t);
+
+  await tourSend(
+    t.chatId,
+    champ
+      ? '🏆 <b>ТУРНИР ЖЕҢІМПАЗЫ</b>\n\n' +
+        `🥇 ${playerLink(champ)}\n` +
+        `🥈 ${second ? playerLink(second) : '—'}\n\n` +
+        `👥 Қатысушылар: ${t.players.length}\n` +
+        'Құттықтаймыз! 🎉'
+      : '🏁 <b>Турнир аяқталды</b>\n\nЖеңімпаз жоқ: соңғы ойыншылар ойынға кірмеді.'
+  );
+
+  [roundMsgId, startMsgId, ...tmp].forEach(id => tourDelete(t.chatId, id));
+}
+
+// Топ блокталғанда / бот шығарылғанда
+function tourAbort(chatId) {
+  const t = tournaments.get(String(chatId));
+
+  if (!t) return;
+
+  tourClear(t);
+
+  for (const m of t.pairs || []) {
+    if (m.code) {
+      const room = groupRooms.get(m.code);
+      if (room) clearTimeout(room.tourTimer);
+      cleanupGroupRoom(m.code);
+    }
+  }
+
+  t.phase = 'aborted';
+  tourForget(t);
+}
+
 /* ---------- Топ callback ---------- */
 
 async function handleGroupCallback(query) {
   const data = String(query.data || '');
+
+  if (/^tr:/.test(data)) return handleTourCallback(query);
   const from = query.from;
   const userId = String(from.id);
 
@@ -4536,6 +5212,7 @@ async function handleTelegramWebhook(req, res) {
           )
         ) {
           removeGroup(chat.id);
+          tourAbort(chat.id);
         } else if (
           status === 'member' ||
           status === 'administrator' ||
@@ -5209,6 +5886,18 @@ async function handleTelegramWebhook(req, res) {
       return res.end('ok');
     }
 
+    /* Топтағы турнир */
+
+    if (
+      /^\/turnir(?:@\w+)?(?:\s|$)/i.test(message.text) &&
+      ['group', 'supergroup'].includes(message.chat.type)
+    ) {
+      await handleTurnirCommand(message);
+
+      res.writeHead(200);
+      return res.end('ok');
+    }
+
     /* Топтық ойын ашу */
 
     if (
@@ -5802,6 +6491,15 @@ function finish(g, winner, reason) {
     const room = groupRooms.get(g.groupInfo.code);
     const chatId = g.groupInfo.chatId;
 
+    if (room && room.tour) {
+      tourOnGameEnd(
+        room,
+        winner === 'w' ? g.p.w : winner === 'b' ? g.p.b : null
+      );
+
+      return;
+    }
+
     const winnerId = winner === 'w'
       ? g.p.w
       : winner === 'b'
@@ -5976,9 +6674,13 @@ function startGroupMatch(room, g) {
     t: 'group_started'
   });
 
-  replaceGroupRoomMessage(room).catch(
-    error => console.error(error.message)
-  );
+  clearTimeout(room.tourTimer);
+
+  if (!room.tour) {
+    replaceGroupRoomMessage(room).catch(
+      error => console.error(error.message)
+    );
+  }
 }
 
 function joinGroupGame(u, token) {
